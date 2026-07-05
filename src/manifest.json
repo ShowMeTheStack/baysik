@@ -1,0 +1,20 @@
+{
+  "core": [
+    "core/util.js",
+    "core/fonts.js",
+    "lang/basic/errors.js",
+    "lang/basic/lexer.js",
+    "lang/basic/parser.js",
+    "lang/basic/types.js",
+    "lang/basic/compiler.js",
+    "lang/basic/runtime.js",
+    "lang/basic/printusing.js",
+    "lang/basic/builtins.js",
+    "lang/basic/fileio.js",
+    "core/display.js",
+    "core/audio.js",
+    "core/keyboard.js",
+    "core/vfs.js"
+  ],
+  "ide": []
+}
