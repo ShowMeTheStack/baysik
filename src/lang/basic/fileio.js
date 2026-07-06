@@ -417,8 +417,8 @@
     const vfs = vfsOf(vm);
     let dir = '.', pattern = '*.*';
     if (spec !== undefined && spec.trim()) {
-      const r = fsCall(() => vfs.resolve(spec));
-      const st = fsCall(() => vfs.stat(spec));
+      const r = fsCall(() => vfs.resolve(spec, true));
+      const st = /[*?]/.test(r.name) ? null : fsCall(() => vfs.stat(spec));
       if (st && st.type === 'dir') { dir = spec; pattern = '*.*'; }
       else { dir = r.drive + ':\\' + r.parts.slice(0, -1).join('\\'); pattern = r.name; }
     }

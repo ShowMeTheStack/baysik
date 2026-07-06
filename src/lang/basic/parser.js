@@ -316,8 +316,12 @@
       try {
         target = this.parseRef(false);
       } catch (e) { target = null; }
-      if (target && this.isOp('=') && target.k !== 'fn') {
+      if (target && this.isOp('=')) {
         this.p++;
+        if (target.k === 'fn') {
+          if (target.args.length) this.fail('Expected: statement');
+          target = { k: 'var', name: target.name, base: target.base, sfx: target.sfx, display: target.name, pos: target.pos };
+        }
         const e = this.parseExpr();
         return { k: 'LET', target, e };
       }
@@ -625,8 +629,8 @@
       if (kind.t !== 'kw' || (kind.v !== 'SUB' && kind.v !== 'FUNCTION')) this.fail('Expected: SUB or FUNCTION', kind);
       const n = this.next();
       if (n.t !== 'id') this.fail('Expected: name', n);
-      if (this.acceptKw('CDECL')) { /* ignore */ }
-      if (this.acceptKw('ALIAS')) this.next();
+      if (this.tok.t === 'id' && this.tok.v === 'CDECL') this.p++;
+      if (this.tok.t === 'id' && this.tok.v === 'ALIAS') { this.p++; this.p++; }
       const params = this.parseParams();
       return { k: 'DECLARE', kind: kind.v, name: n.v, params };
     }
@@ -893,7 +897,6 @@
       }
       return { k: 'CALL', name: n.v, base: n.base, sfx: n.sfx, args };
     }
-    st_CALLS() { return this.st_CALL(); }
     st_SWAP() {
       const a = this.parseLvalue();
       this.expectOp(',');

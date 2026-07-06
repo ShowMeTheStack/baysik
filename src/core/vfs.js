@@ -47,7 +47,7 @@
 
     // ---- path handling -------------------------------------------------------------------
     /** Resolve to {drive, key, parts, name, parentKey} */
-    resolve(path) {
+    resolve(path, allowWild) {
       if (typeof path !== 'string') fail(64);
       let p = path.trim();
       if (!p) fail(64);
@@ -59,10 +59,13 @@
       let parts;
       if (p.startsWith('\\')) parts = [];
       else parts = (this.cwds[drive] || '\\').split('\\').filter(Boolean);
-      for (const seg of p.split('\\')) {
+      const segs = p.split('\\');
+      for (let si = 0; si < segs.length; si++) {
+        const seg = segs[si];
         if (!seg || seg === '.') continue;
         if (seg === '..') { if (parts.length) parts.pop(); continue; }
-        if (BAD_CHARS.test(seg) || seg.length > 64) fail(64);
+        const bad = allowWild && si === segs.length - 1 ? /[<>:"|\x00-\x1f]/ : BAD_CHARS;
+        if (bad.test(seg) || seg.length > 64) fail(64);
         parts.push(seg.replace(/[ .]+$/, '') || seg);
       }
       const key = '\\' + parts.map((s) => s.toUpperCase()).join('\\');
@@ -239,7 +242,7 @@
     }
     /** Expand a file spec with wildcards ("*.BAS", "DATA\\*.*") */
     glob(spec) {
-      const r = this.resolve(spec);
+      const r = this.resolve(spec, true);
       const name = r.name;
       if (!/[*?]/.test(name)) return this.exists(spec) ? [r.display] : [];
       const dir = r.drive + ':' + '\\' + r.parts.slice(0, -1).join('\\');

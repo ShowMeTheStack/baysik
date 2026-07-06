@@ -296,8 +296,8 @@
     }
 
     // ---- emission helpers ----------------------------------------------------------------
-    emit(op, a, b, c, d) {
-      const ins = { op, a, b, c, d };
+    emit(op, a, b, c, d, e) {
+      const ins = { op, a, b, c, d, e };
       this.code.push(ins);
       return ins;
     }

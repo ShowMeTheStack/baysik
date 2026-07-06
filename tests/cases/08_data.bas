@@ -1,0 +1,13 @@
+10 READ A, B$, C
+20 PRINT A; B$; C
+30 RESTORE 100
+40 READ D: PRINT D
+50 READ E, F$: PRINT E; F$
+60 DATA 1, "hello, world", 3.5
+70 X = 0
+80 IF X < 3 THEN X = X + 1: GOTO 80
+90 PRINT "X="; X
+100 DATA 10, 20, abc def
+110 GOSUB 200: PRINT "back"
+120 END
+200 PRINT "in sub": RETURN
