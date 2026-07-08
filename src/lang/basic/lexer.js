@@ -30,18 +30,19 @@
    *   t: 'num' {v, ty}  'str' {v}  'id' {v (upper, incl. suffix), name (as typed), sfx}
    *      'kw' {v}  'op' {v}  'lineno' {v}  'label' {v}  'rem' {v, meta}  'data' {v}  'eol'
    */
-  function lex(src, file) {
+  function lex(src, file, opts) {
     file = file || '';
     const lines = src.replace(/\r\n?/g, '\n').split('\n');
     const out = [];
+    const noNum = !!(opts && opts.noLineNumbers);
     for (let ln = 0; ln < lines.length; ln++) {
       const s = lines[ln];
-      out.push({ tokens: lexLine(s, ln, file), line: ln, file });
+      out.push({ tokens: lexLine(s, ln, file, noNum), line: ln, file });
     }
     return out;
   }
 
-  function lexLine(s, ln, file) {
+  function lexLine(s, ln, file, noLineNumbers) {
     const toks = [];
     let i = 0;
     const n = s.length;
@@ -55,7 +56,7 @@
 
     skipWs();
     // Leading line number
-    if (i < n && isDigit(s[i])) {
+    if (i < n && isDigit(s[i]) && !noLineNumbers) {
       const st = i;
       while (i < n && isDigit(s[i])) i++;
       // A line number must be followed by whitespace / end / a non-numeric char

@@ -551,6 +551,7 @@
             case O.RUN: { const file = stack.pop(); this.requestChain('run', file, ins.a, {}); return; }
             case O.CMD: { const file = stack.pop(); this.requestCommand(ins.a, file); break; }
             case O.CLEAR: this.opClear(); break;
+            case O.EVALEND: this.state = 'evaldone'; return;
             default:
               throw new Error('Bad opcode ' + ins.op);
           }

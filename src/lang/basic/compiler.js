@@ -21,7 +21,7 @@
     'ONERROR', 'RESUME', 'ERROR', 'ONEVENT', 'EVENTCTL',
     'OPEN', 'CLOSE', 'FIELD', 'FGET', 'FPUT',
     'GPOINT', 'GLINE', 'GCIRCLE', 'GPAINT', 'GGET', 'GPUT', 'PALUSING',
-    'CHAIN', 'RUN', 'CMD', 'CLEAR', 'DEFFN',
+    'CHAIN', 'RUN', 'CMD', 'CLEAR', 'DEFFN', 'EVALEND',
   ];
   const O = {};
   OPS.forEach((n, i) => { O[n] = i; });

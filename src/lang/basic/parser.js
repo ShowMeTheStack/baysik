@@ -1253,8 +1253,8 @@
   B.Parser = Parser;
 
   /** Parse an entire source text. Returns flat statement list. Throws CompileError. */
-  B.parse = function (src, file) {
-    const lines = B.lex(src, file);
+  B.parse = function (src, file, opts) {
+    const lines = B.lex(src, file, opts);
     const p = new Parser(lines, file);
     // parseProgram must skip lines consumed by TYPE blocks
     const out = p.out;

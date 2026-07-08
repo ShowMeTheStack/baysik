@@ -11,6 +11,8 @@
     "lang/basic/printusing.js",
     "lang/basic/builtins.js",
     "lang/basic/fileio.js",
+    "lang/basic/debugger.js",
+    "lang/basic/gwprog.js",
     "core/display.js",
     "core/audio.js",
     "core/keyboard.js",
