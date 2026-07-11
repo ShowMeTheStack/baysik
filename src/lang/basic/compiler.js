@@ -1664,10 +1664,14 @@
         if (st.k === 'REM' && st.meta && st.meta.cmd === 'INCLUDE') {
           const inc = st.meta.arg;
           if (!inc) throw new CompileError('Expected: \'$INCLUDE: \'filename\'', st.pos);
-          const t = opts.readInclude ? opts.readInclude(inc) : null;
+          let t = null, incName = inc.toUpperCase();
+          if (opts.readIncludeEx) { const r = opts.readIncludeEx(inc); if (r) { t = r.text; incName = r.name; } }
+          else if (opts.readInclude) t = opts.readInclude(inc);
           if (t === null || t === undefined) throw new CompileError(`File not found: ${inc}`, st.pos, 53);
+          if (seen.has(incName)) throw new CompileError(`File included twice: ${inc}`, st.pos);
+          seen.add(incName);
           all.push(st);
-          expand(inc.toUpperCase(), t, depth + 1);
+          expand(incName, t, depth + 1);
           continue;
         }
         all.push(st);

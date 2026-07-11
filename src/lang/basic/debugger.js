@@ -173,9 +173,32 @@
   /** Build a fast predicate for conditional breakpoints / watchpoints (evaluated in the current frame). */
   Debug.makeCondition = function (text) {
     return (vm) => {
-      const r = Debug.evaluate(vm, text);
+      const r = Debug.evaluateCached(vm, text);
       return typeof r.value === 'number' ? r.value !== 0 : r.value;
     };
+  };
+  /**
+   * Evaluate in the current (top) frame, reusing compiled code between calls. Used for
+   * conditional breakpoints and watchpoints, which run on every statement.
+   */
+  Debug.evaluateCached = function (vm, text) {
+    const prog = vm.prog;
+    const frame = vm.frame;
+    const cache = vm._evalCache || (vm._evalCache = new Map());
+    const key = text + '\u0000' + (frame.proc.index === undefined ? -1 : frame.proc.index);
+    let c = cache.get(key);
+    if (c && c.error) throw c.error;
+    if (!c || c.startPc !== prog.code.length) {
+      let snip;
+      try { snip = compileSnippet(vm, text, frame, 'expr'); } catch (e) { cache.set(key, { error: e }); throw e; }
+      c = { startPc: snip.startPc, stmtsLen: snip.stmtsLen, ins: prog.code.slice(snip.startPc), stmts: prog.stmts.slice(snip.stmtsLen), type: snip.type };
+      cache.set(key, c);
+    } else {
+      for (const i of c.ins) prog.code.push(i);
+      for (const s of c.stmts) prog.stmts.push(s);
+    }
+    const value = runSnippet(vm, { startPc: c.startPc, stmtsLen: c.stmtsLen }, undefined, true);
+    return { value, type: c.type };
   };
 
   // ---- variables view ------------------------------------------------------------------------
