@@ -16,7 +16,25 @@
     "core/display.js",
     "core/audio.js",
     "core/keyboard.js",
-    "core/vfs.js"
+    "core/vfs.js",
+    "lang/basic/highlight.js",
+    "lang/basic/helpdata.js",
+    "lang/basic/samples-data.js"
   ],
-  "ide": []
+  "ide": [
+    "ide/ui.js",
+    "ide/editor.js",
+    "ide/share.js",
+    "ide/zip.js",
+    "ide/runner.js",
+    "ide/panels.js",
+    "ide/console.js",
+    "ide/samples.js",
+    "ide/help.js",
+    "ide/tour.js",
+    "ide/app.js"
+  ],
+  "css": [
+    "ide/styles.css"
+  ]
 }
