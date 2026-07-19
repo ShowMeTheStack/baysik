@@ -19,7 +19,9 @@
     "core/vfs.js",
     "lang/basic/highlight.js",
     "lang/basic/helpdata.js",
-    "lang/basic/samples-data.js"
+    "lang/basic/samples-data.js",
+    "lang/basic/library-data.js",
+    "lang/basic/lessons-data.js"
   ],
   "ide": [
     "ide/ui.js",
@@ -30,6 +32,8 @@
     "ide/panels.js",
     "ide/console.js",
     "ide/samples.js",
+    "ide/library.js",
+    "ide/lessons.js",
     "ide/help.js",
     "ide/tour.js",
     "ide/app.js"

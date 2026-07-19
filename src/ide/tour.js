@@ -97,19 +97,21 @@
     menu(app) {
       const b = document.getElementById('tbTour');
       const r = b.getBoundingClientRect();
-      RC.UI.showMenu(Object.entries(TOURS).map(([id, t]) => ({ label: t.title, action: () => Tours.start(app, id) })), r.left, r.bottom);
+      RC.UI.showMenu([{ label: 'Learn BASIC — all lessons…', action: () => RC.Lessons.browse(app) }, { sep: true },
+        ...Object.entries(TOURS).map(([id, t]) => ({ label: 'Tour: ' + t.title, action: () => Tours.start(app, id) }))], r.left, r.bottom);
     },
     async offerWelcome(app) {
       const r = await RC.UI.modal({
         title: 'Welcome!',
         body: h('div', h('p', 'Compendium is a BASIC programming studio — GW-BASIC and QBasic compatible, with graphics, sound, files and a real debugger.'), h('p', 'Would you like a quick tour?')),
-        buttons: [{ label: 'No thanks', value: null }, { label: 'Write my first program', value: 'first' }, { label: 'Show me around', value: 'welcome', primary: true }],
+        buttons: [{ label: 'No thanks', value: null }, { label: 'Start the tutorial', value: 'learn' }, { label: 'Show me around', value: 'welcome', primary: true }],
       });
-      if (r) Tours.start(app, r);
+      if (r === 'learn') RC.Lessons.browse(app);
+      else if (r) Tours.start(app, r);
     },
     start(app, id) {
       Tours.stop();
-      const tour = TOURS[id];
+      const tour = typeof id === 'object' ? id : TOURS[id];
       if (!tour) return;
       const hole = h('div.tour-hole');
       const pop = h('div.tour-pop', { role: 'dialog', 'aria-live': 'polite' });
@@ -132,6 +134,7 @@
       const step = st.tour.steps[st.i];
       clearInterval(st.timer);
       if (step.action) { try { await step.action(st.app); } catch (e) { console.error(e); } }
+      if (step.enter) { try { step.enter(st.app); } catch (e) { console.error(e); } }
       if (st.app.isMobile() && step.sel) {
         const sel = step.sel;
         if (/editor|gutter/.test(sel)) st.app.setMobileView('editor');
@@ -143,19 +146,48 @@
       pop.innerHTML = '';
       const last = st.i === st.tour.steps.length - 1;
       const waitEl = step.wait ? h('div.tour-wait', step.waitText || 'Waiting…') : null;
-      const next = h('button.btn.primary', { type: 'button' }, last ? 'Finish' : 'Next');
+      const next = h('button.btn.primary', { type: 'button' }, last ? (st.tour.finishLabel || 'Finish') : 'Next');
       const back = h('button.btn', { type: 'button', disabled: st.i === 0 }, 'Back');
       const skip = h('button.btn', { type: 'button' }, 'Close');
-      next.addEventListener('click', () => { if (last) Tours.stop(); else { st.i++; Tours.show(st); } });
+      const finish = () => { Tours.stop(); if (st.tour.onFinish) st.tour.onFinish(st.app); };
+      next.addEventListener('click', () => { if (last) finish(); else { st.i++; Tours.show(st); } });
       back.addEventListener('click', () => { if (st.i > 0) { st.i--; Tours.show(st); } });
       skip.addEventListener('click', () => Tours.stop());
-      pop.append(h('h3', step.title), h('p', { html: step.text }), waitEl, h('div.tour-foot', h('span.count', `${st.i + 1} / ${st.tour.steps.length}`), skip, back, next));
+      const header = st.tour.lessonTitle ? h('div', { style: { fontSize: '11px', opacity: 0.7, marginBottom: '2px' } }, st.tour.lessonTitle) : null;
+      const body = [];
+      if (step.quiz) {
+        const qz = step.quiz;
+        const fb = h('p', { style: { fontWeight: 600 } });
+        const opts = h('div', { style: { display: 'flex', flexDirection: 'column', gap: '4px', margin: '6px 0' } });
+        qz.options.forEach((o, i) => {
+          const b = h('button.btn', { type: 'button', style: { textAlign: 'left', height: 'auto', padding: '5px 10px' } }, o);
+          b.addEventListener('click', () => {
+            const ok = i === qz.answer;
+            fb.textContent = (ok ? '✓ Correct! ' : '✗ Not quite. ') + (qz.explain || '');
+            fb.style.color = ok ? 'var(--ok)' : 'var(--err)';
+            if (ok) { next.disabled = false; next.focus(); }
+          });
+          opts.appendChild(b);
+        });
+        body.push(h('p', { html: qz.q }), opts, fb);
+        next.disabled = true;
+      } else body.push(h('p', { html: step.text }));
+      let hintEl = null;
+      if (step.hint) {
+        hintEl = h('p.muted', { hidden: true, html: '💡 ' + step.hint });
+        body.push(hintEl);
+      }
+      pop.append(header, h('h3', step.title), ...body, waitEl, h('div.tour-foot', h('span.count', `${st.i + 1} / ${st.tour.steps.length}`),
+        step.hint ? h('button.btn', { type: 'button', onclick: () => { hintEl.hidden = false; Tours.place(st); } }, 'Hint') : null, skip, back, next));
       if (step.wait) {
         next.textContent = 'Skip step';
         st.timer = setInterval(() => {
           let ok = false;
           try { ok = step.wait(st.app); } catch (e) { ok = false; }
-          if (ok) { clearInterval(st.timer); waitEl.textContent = '✓ Done!'; next.textContent = last ? 'Finish' : 'Next'; next.focus(); setTimeout(() => { if (Tours.active === st && st.tour.steps[st.i] === step && !last) { st.i++; Tours.show(st); } }, 900); }
+          if (ok) {
+            clearInterval(st.timer); waitEl.textContent = '✓ Done!'; next.textContent = last ? (st.tour.finishLabel || 'Finish') : 'Next'; next.focus();
+            setTimeout(() => { if (Tours.active === st && st.tour.steps[st.i] === step && !last) { st.i++; Tours.show(st); } }, 900);
+          }
         }, 300);
       }
       Tours.place(st);

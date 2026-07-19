@@ -229,7 +229,9 @@
         { label: 'Help', hot: 0, items: () => [
           { label: 'Language Reference', sc: 'F1', action: () => RC.Help.open(this) },
           { label: 'Keyboard Shortcuts', action: () => this.shortcutsDialog() },
-          { label: 'Example Programs…', action: () => RC.Samples.gallery(this) },
+          { label: 'Learn BASIC (Tutorial)…', action: () => RC.Lessons.browse(this) },
+          { label: 'Program Library…', action: () => RC.Library.browse(this) },
+          { label: 'Starter Examples…', action: () => RC.Samples.gallery(this) },
           { sep: true },
           { label: 'Tour: Welcome to the IDE', action: () => RC.Tours.start(this, 'welcome') },
           { label: 'Tour: Your First Program', action: () => RC.Tours.start(this, 'first') },
@@ -292,8 +294,9 @@
         over: btn('tbOver', 'stepOver', 'Over', 'Step Over (F10)', () => this.step('over')),
         out: btn('tbOut', 'stepOut', 'Out', 'Step Out (Shift+F8)', () => this.step('out')),
         bp: btn('tbBp', 'bp', '', 'Toggle Breakpoint (F9)', () => this.toggleBreakpointAtCursor(), 'danger'),
-        examples: btn('tbExamples', 'star', 'Examples', 'Example programs', () => RC.Samples.gallery(this)),
-        help: btn('tbHelp', 'book', 'Help', 'Language reference (F1)', () => RC.Help.open(this)),
+        examples: btn('tbExamples', 'star', 'Library', 'Program library: hundreds of commented example programs', () => RC.Library.browse(this)),
+        learn: btn('tbLearn', 'book', 'Learn', 'BASIC tutorial: step-by-step lessons', () => RC.Lessons.browse(this)),
+        help: btn('tbHelp', 'help', 'Help', 'Language reference (F1)', () => RC.Help.open(this)),
         tour: btn('tbTour', 'tour', 'Tours', 'Guided tours', () => RC.Tours.menu(this)),
       };
       this.speedSel = h('select', { title: 'Execution speed', 'aria-label': 'Execution speed', id: 'tbSpeed' }, SPEEDS.map((sp) => h('option', { value: sp.v }, sp.label)));
@@ -303,7 +306,7 @@
       tb.append(this.tb.run, this.tb.pause, this.tb.stop, this.tb.restart, h('span.tb-sep'),
         this.tb.into, this.tb.over, this.tb.out, this.tb.bp, h('span.tb-sep'),
         h('span.tb-group', h('span.tb-label', 'Speed'), this.speedSel), h('span.grow'), this.statePill, h('span.tb-sep'),
-        this.tb.examples, this.tb.tour, this.tb.help);
+        this.tb.learn, this.tb.examples, this.tb.tour, this.tb.help);
     }
     setSpeed(v) {
       this.settings.speed = v;
@@ -912,6 +915,7 @@
       const path = (opts && opts.path) || this.runTarget();
       if (!path) { RC.UI.toast('Open or create a program first', 'err'); return; }
       const doc = this.docByPath(path);
+      this.runCount = (this.runCount || 0) + 1;
       if (this.settings.autosave) this.saveAll();
       const text = doc ? doc.editor.getValue() : this.decodeText(this.vfs.readFile(path));
       this.clearExecMarks();

@@ -317,7 +317,11 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 /* ===== Dialogs / overlays =============================================== */
 .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: grid; place-items: center; z-index: 2000; padding: 16px; }
 .modal { background: var(--pane); color: var(--text); border: 1px solid var(--border); box-shadow: var(--shadow); width: min(560px, 100%); max-height: 90vh; display: flex; flex-direction: column; border-radius: var(--radius); }
-:root[data-theme="qbasic"] .modal { background: #aaaaaa; color: #000; border: 2px solid #fff; box-shadow: 8px 8px 0 #000; --input: #fff; --border: #000; }
+:root[data-theme="qbasic"] .modal { background: #aaaaaa; color: #000; border: 2px solid #fff; box-shadow: 8px 8px 0 #000; --input: #fff; --border: #555;
+  --pane: #aaaaaa; --pane2: #c4c4c4; --text: #000; --muted: #2a2a2a; --accent: #0000aa; --accent-fg: #fff; --menu-sel: #0000aa; --menu-sel-fg: #fff;
+  --btn: #aaaaaa; --btn-fg: #000; --btn-hover: #dcdcdc; --ok: #006400; --err: #aa0000; }
+:root[data-theme="qbasic"] .modal .card { background: #d0d0d0; color: #000; }
+:root[data-theme="qbasic"] .modal .card:hover { background: #fff; border-color: #0000aa; }
 :root[data-theme="qbasic"] .modal .modal-head { background: #aaaaaa; color: #000; justify-content: center; border-bottom: 1px solid #000; }
 .modal.wide { width: min(900px, 100%); }
 .modal-head { padding: 8px 14px; font-weight: 700; background: var(--pane-head); color: var(--pane-head-fg); display: flex; align-items: center; gap: 8px; }
@@ -362,7 +366,7 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 .help-nav .grp { font: 600 11px var(--font-ui); color: var(--muted); text-transform: uppercase; padding-top: 8px; cursor: default; }
 .help-nav .grp:hover { background: none; color: var(--muted); }
 .help-main { overflow: auto; padding: 4px 16px 16px; }
-.help-main h2 { margin: 8px 0; font-family: var(--font-code); }
+.help-main h2 { margin: 8px 0; font-family: var(--font-code); font-size: 18px; }
 .help-main pre, .help-main code { font-family: var(--font-code); }
 .help-main pre { background: var(--ed-bg); color: var(--ed-fg); padding: 8px 10px; overflow: auto; border-radius: var(--radius); }
 .help-main .syntax { background: var(--pane2); padding: 6px 10px; border-left: 3px solid var(--accent); font-family: var(--font-code); white-space: pre-wrap; }
