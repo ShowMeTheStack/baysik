@@ -421,6 +421,11 @@
       const r = this.runner;
       r.ensureIdleVm();
       try {
+        if (r.vm && r.vm.state === 'paused') {
+          try { RC.Basic.Debug.execute(r.vm, line, r.vm.frames.length - 1); } catch (e) { this.err(e instanceof B.BasicError ? e.message : (/^Expected|not valid/.test(e.message) ? 'Syntax error' : e.message)); }
+          this.ok();
+          return true;
+        }
         const ok = r.runImmediate(line, null);
         if (!ok) { this.err('Busy'); this.ok(); }
       } catch (e) {

@@ -109,6 +109,7 @@
         this.resetGraphicsState();
         this.cursorVisible = false;
         this.colorSwitch = colorSwitch;
+        if (this.keyLineOn) { this.viewBottom = this.rows - 2; this.drawKeyLine(); }
         this.emit('mode', mode);
       }
       const np = this.m.pages;

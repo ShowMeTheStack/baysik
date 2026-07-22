@@ -410,6 +410,13 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
   .app[data-mview="debug"] { grid-template-rows: auto auto auto 0 0 minmax(0, 1fr) auto; }
   .app:not([data-mview="debug"]) .bottom { display: none; }
   .toolbar .tb-btn .lbl { display: none; }
+  .menubar { overflow-x: auto; scrollbar-width: none; }
+  .menubar .brand { font-size: 0; margin-right: 4px; }
+  .toolbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .toolbar .tb-label, .toolbar .state-pill, .toolbar .grow { display: none; }
+  .toolbar select { max-width: 110px; }
+  .tb-btn { padding: 0 7px; flex: none; }
+  .mobile-tabs button { flex: 1 1 0; min-width: 0; }
   .menubar .proj { display: none; }
   .menu-btn { padding: 3px 6px; }
   .help { grid-template-columns: 1fr; grid-template-rows: 120px 1fr; }
@@ -7381,6 +7388,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         this.resetGraphicsState();
         this.cursorVisible = false;
         this.colorSwitch = colorSwitch;
+        if (this.keyLineOn) { this.viewBottom = this.rows - 2; this.drawKeyLine(); }
         this.emit('mode', mode);
       }
       const np = this.m.pages;
@@ -11710,6 +11718,11 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const r = this.runner;
       r.ensureIdleVm();
       try {
+        if (r.vm && r.vm.state === 'paused') {
+          try { RC.Basic.Debug.execute(r.vm, line, r.vm.frames.length - 1); } catch (e) { this.err(e instanceof B.BasicError ? e.message : (/^Expected|not valid/.test(e.message) ? 'Syntax error' : e.message)); }
+          this.ok();
+          return true;
+        }
         const ok = r.runImmediate(line, null);
         if (!ok) { this.err('Busy'); this.ok(); }
       } catch (e) {
