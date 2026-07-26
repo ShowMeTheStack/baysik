@@ -585,8 +585,8 @@
       const st = this.prog.stmts[idx];
       if (this.recordHistory && !st.noStep) {
         const h = this.history;
+        if (h.length >= this.historyMax * 2) h.splice(0, h.length - this.historyMax);
         h.push(idx);
-        if (h.length > this.historyMax) h.shift();
       }
       if (this.tron && st.lineNo !== null && st.lineNo !== this.lastTron) {
         this.lastTron = st.lineNo;
@@ -1302,6 +1302,24 @@
     }
   }
   B.Rnd = Rnd;
+
+  // Performance: a switch whose labels are property reads (case O.ADD:) is evaluated label by label.
+  // Re-create exec() once with numeric literal labels so V8 compiles a jump table (~25x faster dispatch).
+  (function specializeExec() {
+    const src = VM.prototype.exec.toString();
+    const body = src.slice(src.indexOf('{') + 1, src.lastIndexOf('}'));
+    let missing = null;
+    const fixed = body.replace(/case O\.([A-Z]+):/g, (m, n) => {
+      if (O[n] === undefined) missing = n;
+      return 'case ' + O[n] + ' /* ' + n + ' */:';
+    });
+    if (missing) throw new Error('unknown opcode ' + missing);
+    try {
+      // eslint-disable-next-line no-new-func
+      VM.prototype.exec = new Function('B', 'O', 'WAIT', 'err', 'now', 'copyRecordInto', 'BasicError', 'FK_EVENT',
+        'return function exec(budget) {' + fixed + '};')(B, O, WAIT, err, now, copyRecordInto, BasicError, FK_EVENT);
+    } catch (e) { /* CSP without eval: keep the generic version */ }
+  })();
 
   B.VM = VM;
   B.FK = { NORMAL: FK_NORMAL, EVENT: FK_EVENT, ERROR: FK_ERROR };
