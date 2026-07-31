@@ -340,7 +340,7 @@
             }
             case O.GOSUB: {
               const g = this.frame.gosub;
-              if (g.length > 20000) err(7);
+              if (g.length > 20000) err(28);
               g.push(this.pc);
               this.pc = ins.a;
               break;
@@ -758,10 +758,14 @@
       const c = this.cont(ins.a, ins.b), k = this.key(ins.a, ins.b);
       c[k] = start;
       const fors = this.frame.fors;
+      // Re-entering the same FOR statement (e.g. after GOTO out of the loop) replaces its old record.
+      // Loops are identified by statement, not variable, so a GOSUB routine that runs its own
+      // FOR i does not destroy the caller's FOR i loop (QBasic behaviour).
       for (let i = fors.length - 1; i >= 0; i--) {
-        if (fors[i].c === c && fors[i].k === k) { fors.length = i; break; }
+        if (fors[i].ins === ins) { fors.length = i; break; }
       }
-      const rec = { c, k, limit, step, code: ins.c.code, body: this.pc, name: ins.varName };
+      if (fors.length > 1000) fors.splice(0, fors.length - 1000);
+      const rec = { c, k, limit, step, code: ins.c.code, body: this.pc, name: ins.varName, ins };
       if (step >= 0 ? start > limit : start < limit) {
         this.pc = ins.d;
         return;
@@ -790,7 +794,7 @@
     opCall(ins) {
       const proc = this.prog.procs[ins.a];
       const args = this.popN(ins.b);
-      if (this.frames.length > 4000) err(7, 'Out of stack space');
+      if (this.frames.length > 4000) err(28);
       const L = new Array(proc.nlocals);
       const types = proc.localTypes;
       for (let i = 0; i < proc.nlocals; i++) L[i] = this.initValue(types[i]);

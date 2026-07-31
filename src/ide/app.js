@@ -1386,8 +1386,8 @@
       center(11, '╚══════════════════════════════════════════════╝', 11);
       center(13, 'GW-BASIC + QBasic compatible  •  every screen mode  •  debugger', 7);
       center(16, 'Press F5 to run the program in the editor', 14);
-      center(17, 'Help ▸ Example Programs for games, graphics and music', 15);
-      center(19, 'View ▸ GW-BASIC Classic Console for the 1980s experience', 7);
+      center(17, 'Learn: step-by-step lessons   Library: hundreds of programs', 15);
+      center(19, 'View > GW-BASIC Classic Console for the 1980s experience', 7);
       d.color(7, 0);
       d.locate(25, 1);
     }

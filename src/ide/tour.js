@@ -177,8 +177,8 @@
         hintEl = h('p.muted', { hidden: true, html: '💡 ' + step.hint });
         body.push(hintEl);
       }
-      pop.append(header, h('h3', step.title), ...body, waitEl, h('div.tour-foot', h('span.count', `${st.i + 1} / ${st.tour.steps.length}`),
-        step.hint ? h('button.btn', { type: 'button', onclick: () => { hintEl.hidden = false; Tours.place(st); } }, 'Hint') : null, skip, back, next));
+      pop.append(...[header, h('h3', step.title), ...body, waitEl, h('div.tour-foot', h('span.count', `${st.i + 1} / ${st.tour.steps.length}`),
+        step.hint ? h('button.btn', { type: 'button', onclick: () => { hintEl.hidden = false; Tours.place(st); } }, 'Hint') : null, skip, back, next)].filter(Boolean));
       if (step.wait) {
         next.textContent = 'Skip step';
         st.timer = setInterval(() => {

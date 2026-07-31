@@ -11,7 +11,7 @@
     15: 'String too long', 16: 'String formula too complex', 17: 'Cannot continue',
     18: 'Function not defined', 19: 'No RESUME', 20: 'RESUME without error',
     21: 'Unprintable error', 22: 'Missing operand', 23: 'Line buffer overflow',
-    24: 'Device timeout', 25: 'Device fault', 26: 'FOR without NEXT', 27: 'Out of paper',
+    24: 'Device timeout', 25: 'Device fault', 26: 'FOR without NEXT', 27: 'Out of paper', 28: 'Out of stack space',
     29: 'WHILE without WEND', 30: 'WEND without WHILE', 33: 'Duplicate label',
     35: 'Subprogram not defined', 37: 'Argument-count mismatch', 38: 'Array not defined',
     40: 'Variable required', 50: 'FIELD overflow', 51: 'Internal error',

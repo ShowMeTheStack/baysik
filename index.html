@@ -582,7 +582,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     15: 'String too long', 16: 'String formula too complex', 17: 'Cannot continue',
     18: 'Function not defined', 19: 'No RESUME', 20: 'RESUME without error',
     21: 'Unprintable error', 22: 'Missing operand', 23: 'Line buffer overflow',
-    24: 'Device timeout', 25: 'Device fault', 26: 'FOR without NEXT', 27: 'Out of paper',
+    24: 'Device timeout', 25: 'Device fault', 26: 'FOR without NEXT', 27: 'Out of paper', 28: 'Out of stack space',
     29: 'WHILE without WEND', 30: 'WEND without WHILE', 33: 'Duplicate label',
     35: 'Subprogram not defined', 37: 'Argument-count mismatch', 38: 'Array not defined',
     40: 'Variable required', 50: 'FIELD overflow', 51: 'Internal error',
@@ -4514,7 +4514,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
             }
             case O.GOSUB: {
               const g = this.frame.gosub;
-              if (g.length > 20000) err(7);
+              if (g.length > 20000) err(28);
               g.push(this.pc);
               this.pc = ins.a;
               break;
@@ -4932,10 +4932,14 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
       const c = this.cont(ins.a, ins.b), k = this.key(ins.a, ins.b);
       c[k] = start;
       const fors = this.frame.fors;
+      // Re-entering the same FOR statement (e.g. after GOTO out of the loop) replaces its old record.
+      // Loops are identified by statement, not variable, so a GOSUB routine that runs its own
+      // FOR i does not destroy the caller's FOR i loop (QBasic behaviour).
       for (let i = fors.length - 1; i >= 0; i--) {
-        if (fors[i].c === c && fors[i].k === k) { fors.length = i; break; }
+        if (fors[i].ins === ins) { fors.length = i; break; }
       }
-      const rec = { c, k, limit, step, code: ins.c.code, body: this.pc, name: ins.varName };
+      if (fors.length > 1000) fors.splice(0, fors.length - 1000);
+      const rec = { c, k, limit, step, code: ins.c.code, body: this.pc, name: ins.varName, ins };
       if (step >= 0 ? start > limit : start < limit) {
         this.pc = ins.d;
         return;
@@ -4964,7 +4968,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     opCall(ins) {
       const proc = this.prog.procs[ins.a];
       const args = this.popN(ins.b);
-      if (this.frames.length > 4000) err(7, 'Out of stack space');
+      if (this.frames.length > 4000) err(28);
       const L = new Array(proc.nlocals);
       const types = proc.localTypes;
       for (let i = 0; i < proc.nlocals; i++) L[i] = this.initValue(types[i]);
@@ -12362,8 +12366,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         hintEl = h('p.muted', { hidden: true, html: '💡 ' + step.hint });
         body.push(hintEl);
       }
-      pop.append(header, h('h3', step.title), ...body, waitEl, h('div.tour-foot', h('span.count', `${st.i + 1} / ${st.tour.steps.length}`),
-        step.hint ? h('button.btn', { type: 'button', onclick: () => { hintEl.hidden = false; Tours.place(st); } }, 'Hint') : null, skip, back, next));
+      pop.append(...[header, h('h3', step.title), ...body, waitEl, h('div.tour-foot', h('span.count', `${st.i + 1} / ${st.tour.steps.length}`),
+        step.hint ? h('button.btn', { type: 'button', onclick: () => { hintEl.hidden = false; Tours.place(st); } }, 'Hint') : null, skip, back, next)].filter(Boolean));
       if (step.wait) {
         next.textContent = 'Skip step';
         st.timer = setInterval(() => {
@@ -13795,8 +13799,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       center(11, '╚══════════════════════════════════════════════╝', 11);
       center(13, 'GW-BASIC + QBasic compatible  •  every screen mode  •  debugger', 7);
       center(16, 'Press F5 to run the program in the editor', 14);
-      center(17, 'Help ▸ Example Programs for games, graphics and music', 15);
-      center(19, 'View ▸ GW-BASIC Classic Console for the 1980s experience', 7);
+      center(17, 'Learn: step-by-step lessons   Library: hundreds of programs', 15);
+      center(19, 'View > GW-BASIC Classic Console for the 1980s experience', 7);
       d.color(7, 0);
       d.locate(25, 1);
     }
