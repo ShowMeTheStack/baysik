@@ -8,17 +8,17 @@ import vm from 'node:vm';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const manifest = JSON.parse(readFileSync(join(root, 'src/manifest.json'), 'utf8'));
 
+let cachedRC = null;
 export function loadRC() {
-  const ctx = vm.createContext({
-    console, atob, btoa, TextEncoder, TextDecoder, performance, setTimeout, clearTimeout,
-    Uint8Array, Int16Array, Int32Array, Float32Array, Float64Array, ArrayBuffer, DataView, BigInt, Map, Set, Symbol,
-  });
-  ctx.globalThis = ctx;
+  // Load into the main V8 context (fast globals); the sources only attach to globalThis.RC.
+  if (cachedRC) return cachedRC;
+  delete globalThis.RC;
   for (const f of manifest.core) {
     const code = readFileSync(join(root, 'src', f), 'utf8');
-    vm.runInContext(code, ctx, { filename: f });
+    vm.runInThisContext(code, { filename: f });
   }
-  return ctx.RC;
+  cachedRC = globalThis.RC;
+  return cachedRC;
 }
 
 /**
