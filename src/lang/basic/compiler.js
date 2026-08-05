@@ -800,7 +800,7 @@
       for (let i = 0; i < args.length; i++) {
         const a = args[i], p = proc.params[i];
         if (p.isArray) {
-          const node = a.k === 'arrayname' ? a : (a.k === 'var' ? a : null);
+          const node = a.k === 'arrayname' || a.k === 'var' || (a.k === 'index' && a.args.length === 0) ? a : null;
           if (!node) this.error('Parameter type mismatch (array expected)', a.pos);
           const v = this.lookupVar(node, true, true);
           if (!B.sameType(v.type, p.type) && p.type.k !== 'any') this.error('Parameter type mismatch', a.pos);
