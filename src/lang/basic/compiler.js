@@ -481,7 +481,9 @@
       const idx = this.stmts.length;
       this.stmts.push({
         pos: st.pos || null, kind: st.k, lineNo: this.curLineNo, proc: this.curProc, pc: this.pc, endPc: this.pc, noStep: !!st.noStep,
+        lineStart: !!this.atLineStart,
       });
+      this.atLineStart = false;
       return idx;
     }
 
@@ -532,7 +534,7 @@
           const key = String(st.v);
           if (this.scope.labels.has(key)) this.error('Duplicate label', st.pos, 33);
           this.scope.labels.set(key, this.pc);
-          if (st.k === 'LINENO') this.curLineNo = st.v;
+          if (st.k === 'LINENO') { this.curLineNo = st.v; this.atLineStart = true; }
           return;
         }
         case 'REM':

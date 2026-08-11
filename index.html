@@ -2967,7 +2967,9 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
       const idx = this.stmts.length;
       this.stmts.push({
         pos: st.pos || null, kind: st.k, lineNo: this.curLineNo, proc: this.curProc, pc: this.pc, endPc: this.pc, noStep: !!st.noStep,
+        lineStart: !!this.atLineStart,
       });
+      this.atLineStart = false;
       return idx;
     }
 
@@ -3018,7 +3020,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
           const key = String(st.v);
           if (this.scope.labels.has(key)) this.error('Duplicate label', st.pos, 33);
           this.scope.labels.set(key, this.pc);
-          if (st.k === 'LINENO') this.curLineNo = st.v;
+          if (st.k === 'LINENO') { this.curLineNo = st.v; this.atLineStart = true; }
           return;
         }
         case 'REM':
@@ -4762,7 +4764,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         if (h.length >= this.historyMax * 2) h.splice(0, h.length - this.historyMax);
         h.push(idx);
       }
-      if (this.tron && st.lineNo !== null && st.lineNo !== this.lastTron) {
+      if (this.tron && st.lineNo !== null && (st.lineStart || st.lineNo !== this.lastTron)) {
         this.lastTron = st.lineNo;
         this.printText('[' + st.lineNo + ']');
       }
@@ -6139,6 +6141,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     const m = /^(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})$/.exec(s.trim());
     if (!m) err(5);
     let y = +m[3]; if (y < 100) y += 1900;
+    if (y < 1980 || y > 2099 || +m[1] < 1 || +m[1] > 12 || +m[2] < 1 || +m[2] > 31) err(5);
     const cur = new Date(Date.now() + vm.dateOffset);
     const d = new Date(y, +m[1] - 1, +m[2], cur.getHours(), cur.getMinutes(), cur.getSeconds());
     vm.dateOffset = d.getTime() - Date.now();
@@ -6783,8 +6786,13 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
       case 0x60: return vm.kbd ? vm.kbd.lastScan : 0;
       case 0x61: return vm.port61 || 0;
       case 0x3DA: case 0x3BA: {
-        const t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) % (1000 / 60);
-        return (t < 1.5 ? 8 : 0) | (t % 0.06 < 0.01 ? 1 : 0);
+        // Vertical retrace at 60 Hz. Each frame's retrace is reported to the program at least once
+        // (for ~1.2 ms after it is first seen), so WAIT/INP polling loops never miss frames.
+        const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const frame = Math.floor(t / (1000 / 60));
+        if (vm.retraceFrame !== frame) { vm.retraceFrame = frame; vm.retraceStart = t; }
+        const inRetrace = t - vm.retraceStart < 1.2;
+        return (inRetrace ? 8 : 0) | (inRetrace || (t % 0.064) < 0.01 ? 1 : 0);
       }
       case 0x3C9: case 0x3C7: return vm.display.dacIn(p);
       case 0x201: return vm.host.gamepad ? vm.host.gamepad.port201() : 0xFF;

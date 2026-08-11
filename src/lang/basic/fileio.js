@@ -584,8 +584,13 @@
       case 0x60: return vm.kbd ? vm.kbd.lastScan : 0;
       case 0x61: return vm.port61 || 0;
       case 0x3DA: case 0x3BA: {
-        const t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) % (1000 / 60);
-        return (t < 1.5 ? 8 : 0) | (t % 0.06 < 0.01 ? 1 : 0);
+        // Vertical retrace at 60 Hz. Each frame's retrace is reported to the program at least once
+        // (for ~1.2 ms after it is first seen), so WAIT/INP polling loops never miss frames.
+        const t = typeof performance !== 'undefined' ? performance.now() : Date.now();
+        const frame = Math.floor(t / (1000 / 60));
+        if (vm.retraceFrame !== frame) { vm.retraceFrame = frame; vm.retraceStart = t; }
+        const inRetrace = t - vm.retraceStart < 1.2;
+        return (inRetrace ? 8 : 0) | (inRetrace || (t % 0.064) < 0.01 ? 1 : 0);
       }
       case 0x3C9: case 0x3C7: return vm.display.dacIn(p);
       case 0x201: return vm.host.gamepad ? vm.host.gamepad.port201() : 0xFF;

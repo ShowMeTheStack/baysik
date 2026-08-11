@@ -588,7 +588,7 @@
         if (h.length >= this.historyMax * 2) h.splice(0, h.length - this.historyMax);
         h.push(idx);
       }
-      if (this.tron && st.lineNo !== null && st.lineNo !== this.lastTron) {
+      if (this.tron && st.lineNo !== null && (st.lineStart || st.lineNo !== this.lastTron)) {
         this.lastTron = st.lineNo;
         this.printText('[' + st.lineNo + ']');
       }

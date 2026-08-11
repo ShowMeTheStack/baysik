@@ -464,6 +464,7 @@
     const m = /^(\d{1,2})[-/](\d{1,2})[-/](\d{2}|\d{4})$/.exec(s.trim());
     if (!m) err(5);
     let y = +m[3]; if (y < 100) y += 1900;
+    if (y < 1980 || y > 2099 || +m[1] < 1 || +m[1] > 12 || +m[2] < 1 || +m[2] > 31) err(5);
     const cur = new Date(Date.now() + vm.dateOffset);
     const d = new Date(y, +m[1] - 1, +m[2], cur.getHours(), cur.getMinutes(), cur.getSeconds());
     vm.dateOffset = d.getTime() - Date.now();
