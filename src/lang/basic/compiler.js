@@ -389,6 +389,13 @@
       return this.newVar(scope, key, base, type, isArray, (node.display || node.name), false);
     }
 
+    constClash(base) {
+      for (const sc of [this.scope, this.module]) {
+        if (!sc) continue;
+        for (const k of sc.consts.keys()) if (k.replace(/[%&!#$*]$/, '') === base) return true;
+      }
+      return false;
+    }
     lookupConst(node) {
       const find = (sc) => {
         if (!sc) return null;
@@ -424,6 +431,7 @@
       // Parameters
       proc.paramSlots = [];
       for (const p of proc.params) {
+        if (this.constClash(p.base)) this.error('Duplicate definition (a CONST has this name)', p.pos, 10);
         const slot = scope.nslots++;
         const isRef = proc.kind !== 'def';
         scope.slotTypes[slot] = isRef ? { k: 'ref', code: 8 } : p.type;
@@ -873,6 +881,7 @@
       if (st.shared && scope !== this.module) this.error('DIM SHARED only allowed at module level', st.pos);
       const target = st.shared ? this.module : scope;
       for (const v of st.vars) {
+        if (this.constClash(v.base)) this.error('Duplicate definition (a CONST has this name)', v.pos, 10);
         const isArray = v.dims !== null;
         const type = v.type ? this.resolveTypeSpec(v.type, v.pos) : this.typeOfName(v.base, v.sfx);
         if (v.type && v.sfx && !B.sameType(type, B.typeBySfx(v.sfx))) this.error('Duplicate definition', v.pos, 10);
