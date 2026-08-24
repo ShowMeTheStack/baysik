@@ -724,7 +724,7 @@
       else this.emit(O.CONST, 1);
       const ins = this.emit(O.FOR, v.area, v.slot, v.type, 0);
       ins.varName = v.display;
-      this.pushCtl({ kind: 'for', ins, v, pos: st.pos, exitFix: [] });
+      this.pushCtl({ kind: 'for', ins, v, pos: st.pos, exitFix: [], ifDepth: this.inIf1 || 0 });
     }
     s_NEXT(st) {
       const vars = st.vars.length ? st.vars : [null];
@@ -743,7 +743,7 @@
           // a following NEXT var in the same statement: mark a new statement boundary
         }
         if (c) {
-          if (!this.inIf1) {
+          if (!this.inIf1 || c.ifDepth === this.inIf1) {
             this.ctl.splice(ci);
             c.ins.d = this.pc;
             for (const e of c.exitFix) e.a = this.pc;
