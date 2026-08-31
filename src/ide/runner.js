@@ -99,7 +99,7 @@
       this.display.on('beep', () => this.audio.beep());
       this.keyboard.onBreak = () => this.breakKey();
       this.keyboard.trap = (n, flags, scan) => this.trapKey(n, flags, scan);
-      this.keyboard.onOverflow = () => this.audio.beep();
+      this.keyboard.onOverflow = null; // BIOS beeps on a full buffer; too noisy for INP(&H60) games
       this.pen.onPress = () => { if (this.vm) this.vm.fireEvent('PEN'); };
       const ch = new MessageChannel();
       ch.port1.onmessage = () => { this.scheduled = false; this.loop(); };
