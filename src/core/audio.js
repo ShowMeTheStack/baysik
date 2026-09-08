@@ -142,7 +142,8 @@
       const playNote = (semis, len, dotf) => {
         const total = noteMs(len) * dotf;
         if (semis === null) { this.tone(0, total, 0); return; }
-        const freq = 440 * Math.pow(2, (semis - 57) / 12);
+        // Octave 3 starts at middle C (GW-BASIC/QBasic manuals), so O3 A = 440 Hz
+        const freq = 440 * Math.pow(2, (semis - 45) / 12);
         const on = total * this.style;
         this.tone(freq, on, total - on);
       };
