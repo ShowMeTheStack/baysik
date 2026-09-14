@@ -29,6 +29,8 @@
     "ide/share.js",
     "ide/zip.js",
     "ide/runner.js",
+    "ide/vartree.js",
+    "ide/callout.js",
     "ide/panels.js",
     "ide/console.js",
     "ide/samples.js",

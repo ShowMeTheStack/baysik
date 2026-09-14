@@ -118,80 +118,30 @@
     refreshVars() {
       const body = this.varsBody;
       if (!body) return;
-      body.innerHTML = '';
       const vm = this.vm();
       if (!this.inspectable()) {
-        body.appendChild(h('div.empty', vm && (vm.state === 'running' || vm.state === 'waiting') ? 'Program is running. Pause (Ctrl+Break) or hit a breakpoint to inspect variables.' : 'Run your program and pause it (or set a breakpoint) to see variables here. Double-click a value to change it.'));
+        body.innerHTML = '';
+        body.appendChild(h('div.empty', vm && (vm.state === 'running' || vm.state === 'waiting') ? 'Program is running. Pause (Ctrl+Break) or hit a breakpoint to inspect variables.' : 'Run your program and pause it (or set a breakpoint) to see variables here. Click a value to change it; arrays and records unfold with ▸.'));
         this.varsScope.textContent = '';
         return;
       }
       const fi = this.app.selectedFrameIndex();
-      let vars;
-      try { vars = B.Debug.variables(vm, fi); } catch (e) { body.appendChild(h('div.empty', 'Variables unavailable: ' + e.message)); return; }
+      let vars, consts;
+      try { vars = B.Debug.variables(vm, fi); consts = B.Debug.constants(vm, fi); } catch (e) { body.innerHTML = ''; body.appendChild(h('div.empty', 'Variables unavailable: ' + e.message)); return; }
       const filter = (this.varsFilter.value || '').toUpperCase();
-      this.varsScope.textContent = 'Frame: ' + (vars.scopeName || 'Main module');
-      const section = (title, list, prefix) => {
-        const shown = list.filter((v) => !filter || v.name.toUpperCase().includes(filter));
-        body.appendChild(h('div.vsec', title + ' (' + shown.length + ')'));
-        if (!shown.length) body.appendChild(h('div.empty', { style: { padding: '4px 10px' } }, 'none'));
-        for (const v of shown) this.varRow(body, v, 0, prefix + v.name, fi);
-      };
-      if (vars.locals.length || vars.scopeName) section('Locals — ' + vars.scopeName, vars.locals, 'L:' + vars.scopeName + ':');
-      section('Module-level (global)', vars.globals, 'G:');
-    }
-    varRow(body, v, depth, key, fi) {
-      const prevKey = key;
-      const changed = this.prevValues.has(prevKey) && this.prevValues.get(prevKey) !== v.text;
-      this.prevValues.set(prevKey, v.text);
-      const tw = h('span.twisty', v.expandable ? (this.expanded.has(key) ? '▾' : '▸') : '');
-      const nameCell = h('div.vn', { style: { paddingLeft: (6 + depth * 14) + 'px' } }, tw, h('span', v.name),
-        v.param ? h('span.vbadge', 'param') : null, v.isRet ? h('span.vbadge', 'result') : null);
-      const valCell = h('div.vv' + (changed ? '.changed' : ''), { title: 'Double-click to change' }, v.text);
-      const row = h('div.vrow', nameCell, h('div.vt', v.type), valCell);
-      if (v.expandable) {
-        tw.addEventListener('click', () => { if (this.expanded.has(key)) this.expanded.delete(key); else this.expanded.add(key); this.refreshVars(); });
+      const f = (list) => list.filter((v) => !filter || v.name.toUpperCase().includes(filter));
+      const top = fi === vm.frames.length - 1;
+      this.varsScope.textContent = 'Frame #' + fi + ': ' + (vars.scopeName || 'Main module') + (top ? ' (current)' : ' (caller — editable here)');
+      if (!this.varTree) {
+        this.varTree = new RC.VarTree({ app: this.app, fi: () => this.app.selectedFrameIndex(), canEdit: () => true, refresh: () => this.refreshVars(), onEdited: () => this.refreshAll() });
       }
-      const editable = !(v.vtype && (v.vtype.code === 6)) && !v.isArray;
-      if (editable && v.ref) {
-        valCell.addEventListener('dblclick', () => this.editValue(valCell, v, fi));
-      }
-      body.appendChild(row);
-      if (v.expandable && this.expanded.has(key)) {
-        const pageKey = key + '#page';
-        const start = this.pageStart && this.pageStart.get(pageKey) || 0;
-        const kids = B.Debug.children(v, start, 100);
-        for (const c of kids.items) this.varRow(body, c, depth + 1, key + c.name, fi);
-        if (kids.total > 100) {
-          const nav = h('div.vrow', h('div', { style: { paddingLeft: (20 + depth * 14) + 'px' } },
-            h('button.small-btn', { type: 'button', disabled: start === 0, onclick: () => { this.pageStart = this.pageStart || new Map(); this.pageStart.set(pageKey, Math.max(0, start - 100)); this.refreshVars(); } }, '◀ prev'),
-            ' ', h('span.muted', `${start}–${Math.min(kids.total, start + 100) - 1} of ${kids.total}`), ' ',
-            h('button.small-btn', { type: 'button', disabled: start + 100 >= kids.total, onclick: () => { this.pageStart = this.pageStart || new Map(); this.pageStart.set(pageKey, start + 100); this.refreshVars(); } }, 'next ▶')));
-          body.appendChild(nav);
-        }
-      }
-    }
-    editValue(cell, v, fi) {
-      const vm = this.vm();
-      if (!vm) return;
-      const cur = typeof v.value === 'string' ? '"' + RC.fromCP437(v.value, false) + '"' : v.text;
-      const inp = h('input', { type: 'text', value: cur, 'aria-label': 'New value for ' + v.name });
-      cell.innerHTML = '';
-      cell.appendChild(inp);
-      inp.focus(); inp.select();
-      let done = false;
-      const commit = (ok) => {
-        if (done) return;
-        done = true;
-        if (ok) {
-          try {
-            B.Debug.assign(vm, v, inp.value, fi);
-            this.app.toast('Changed ' + v.name, 'ok');
-          } catch (e) { this.app.toast('Could not set ' + v.name + ': ' + e.message, 'err'); }
-        }
-        this.refreshAll();
-      };
-      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(true); if (e.key === 'Escape') commit(false); e.stopPropagation(); });
-      inp.addEventListener('blur', () => commit(true));
+      const sections = [];
+      if (vars.scopeName) sections.push({ title: 'Locals — ' + vars.scopeName, entries: f(vars.locals), keyPrefix: 'L' + fi + ':' + vars.scopeName + ':' });
+      sections.push({ title: 'Module-level (global)', entries: f(vars.globals), keyPrefix: 'G:' });
+      if (consts.length) sections.push({ title: 'Constants (read-only)', entries: f(consts), keyPrefix: 'C:' });
+      const scroll = body.scrollTop;
+      this.varTree.render(body, sections);
+      body.scrollTop = scroll;
     }
 
     // ---- Watch ---------------------------------------------------------------------------------------

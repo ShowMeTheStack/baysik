@@ -48,6 +48,7 @@
       this.runner.audio.setVolume(this.settings.sound ? this.settings.volume * 0.16 : 0);
       this.runner.setSpeed(this.settings.speed);
       this.panels = new RC.Panels(this, this.el('bottomTabs'), this.el('bottomBody'));
+      this.callout = new RC.HoverCallout(this);
       this.buildMenus();
       this.buildToolbar();
       this.buildScreenActions();
@@ -433,7 +434,8 @@
       editor.on('find', (rep) => this.openFind(rep));
       editor.on('gotoLine', () => this.gotoLineDialog());
       editor.on('help', (line, col) => { const w = B.wordAt(line, col); RC.Help.open(this, w ? w.word : null); });
-      editor.on('hover', (pos, x, y) => this.hover(d, pos, x, y));
+      editor.on('hover', (pos, x, y) => this.callout.showFor(d, pos, x, y));
+      editor.on('hoverOut', () => this.callout.scheduleHide(450));
       editor.on('context', (pos, e) => this.editorContextMenu(d, pos, e));
       editor.on('focus', () => { if (this.console && this.console.active && !this.runner.isActive()) { /* editing alongside console */ } });
       editor.setBreakpoints(this.breakpoints.get(path) || new Map());
@@ -996,7 +998,7 @@
 
     bindRunner() {
       const r = this.runner;
-      r.on('state', () => { this.updateUI(); });
+      r.on('state', (st) => { if (st !== 'paused' && st !== 'error') this.callout.hide(); this.updateUI(); });
       r.on('pause', (why) => this.onPaused(why));
       r.on('end', (info) => this.onEnded(info));
       r.on('error', (info, vm) => this.onRuntimeError(info, vm));

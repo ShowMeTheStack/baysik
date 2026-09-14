@@ -226,6 +226,7 @@
     const isArray = !!s.isArray;
     return {
       name: s.display || s.key,
+      key: s.key, base: s.base,
       type: isArray ? typeName({ code: 7, elem: s.type }) : typeName(s.type),
       vtype: s.type,
       isArray,
@@ -261,36 +262,85 @@
     return out;
   };
 
-  /** Children of an expandable entry (array elements page / record fields) */
+  /**
+   * Children of an expandable entry. Arrays fold one dimension at a time:
+   *   grid(…)  ->  grid(3, …)  ->  grid(3, 7) = value
+   * Records drill down field by field. Returns {items, total} (paged by start/count).
+   */
   Debug.children = function (entry, start, count) {
     const v = entry.value;
+    start = start || 0; count = count || 100;
     const out = [];
     if (v instanceof B.BArray) {
-      start = start || 0; count = count || 100;
-      const n = v.length;
-      for (let i = start; i < Math.min(n, start + count); i++) {
-        // flat index -> subscripts (column-major)
-        const subs = [];
-        let r = i;
-        for (let d = 0; d < v.dims.length; d++) {
-          const ext = v.dims[d].hi - v.dims[d].lo + 1;
-          subs.push(v.dims[d].lo + (r % ext));
-          r = Math.floor(r / ext);
+      const prefix = entry.prefix || [];
+      const d = prefix.length;
+      const dim = v.dims[d];
+      const total = dim.hi - dim.lo + 1;
+      const last = d === v.dims.length - 1;
+      for (let s = dim.lo + start; s <= dim.hi && s < dim.lo + start + count; s++) {
+        const subs = prefix.concat([s]);
+        if (!last) {
+          const rest = v.dims.slice(d + 1).map(() => '…').join(', ');
+          out.push({ name: '(' + subs.join(', ') + ', ' + rest + ')', type: typeName(v.type) + ' row', vtype: { code: 7, elem: v.type },
+            value: v, prefix: subs, text: '', expandable: true, isGroup: true });
+        } else {
+          const i = v.index(subs);
+          const val = v.data[i];
+          out.push({ name: '(' + subs.join(', ') + ')', type: typeName(v.type), vtype: v.type, ref: new B.Ref(v.data, i), value: val,
+            text: fmtValue(val, v.type), expandable: v.type.code === 6 });
         }
-        const ref = new B.Ref(v.data, i);
-        const val = v.data[i];
-        out.push({ name: '(' + subs.join(', ') + ')', type: typeName(v.type), vtype: v.type, ref, value: val, text: fmtValue(val, v.type), expandable: v.type.code === 6 });
       }
-      return { items: out, total: n };
+      return { items: out, total };
     }
     if (v && typeof v === 'object' && v.__def) {
       for (const f of v.__def.fields) {
-        const ref = new B.Ref(v, f.name);
-        out.push({ name: '.' + (f.display || f.name), type: typeName(f.type), vtype: f.type, ref, value: v[f.name], text: fmtValue(v[f.name], f.type), expandable: f.type.code === 6 });
+        out.push({ name: '.' + (f.display || f.name), type: typeName(f.type), vtype: f.type, ref: new B.Ref(v, f.name), value: v[f.name],
+          text: fmtValue(v[f.name], f.type), expandable: f.type.code === 6 });
       }
       return { items: out, total: out.length };
     }
     return { items: [], total: 0 };
+  };
+
+  /** CONSTs visible from frame fi (read-only) */
+  Debug.constants = function (vm, fi) {
+    const frame = vm.frames[fi === undefined ? vm.frames.length - 1 : fi];
+    const prog = vm.prog;
+    const out = [];
+    const add = (scope, where) => {
+      if (!scope || !scope.consts) return;
+      for (const [k, c] of scope.consts) {
+        out.push({ name: c.display || k.replace(/\*$/, ''), base: k.replace(/[%&!#$*]$/, ''), type: 'CONST ' + typeName(c.type), vtype: c.type, value: c.value,
+          text: fmtValue(c.value, c.type), readOnly: true, isConst: true, where });
+      }
+    };
+    if (frame.proc.kind !== 'module' && frame.proc.scope) add(frame.proc.scope, 'local');
+    add(prog.module, 'module');
+    return out;
+  };
+
+  /**
+   * Resolve the variable under the mouse (identifier token from B.wordAt) in frame fi.
+   * Returns a variables-tree entry (array/record/primitive), a read-only const entry, or null.
+   */
+  Debug.hoverEntry = function (vm, word, wantArray, fi) {
+    const raw = word.toUpperCase();
+    const m = /^([A-Z][A-Z0-9.]*?)([%&!#$]?)$/.exec(raw);
+    if (!m) return null;
+    let base = m[1], sfx = m[2];
+    const tryFind = (b) => {
+      const consts = Debug.constants(vm, fi);
+      const c = consts.find((x) => x.base === b && (!sfx || (x.vtype && x.vtype.sfx === sfx)));
+      if (c) return c;
+      const vars = Debug.variables(vm, fi);
+      const all = vars.locals.concat(vars.globals);
+      const cand = all.filter((e) => e.base === b && (!sfx || (e.vtype && e.vtype.sfx === sfx) || (e.key && e.key.endsWith(sfx))));
+      if (!cand.length) return null;
+      return cand.find((e) => !!e.isArray === !!wantArray) || cand[0];
+    };
+    let e = tryFind(base);
+    if (!e && base.includes('.')) e = tryFind(base.split('.')[0]);
+    return e;
   };
 
   /**
@@ -299,6 +349,8 @@
    */
   Debug.assign = function (vm, entry, text, fi) {
     const t = entry.vtype;
+    if (entry.readOnly || entry.isConst) throw new Error('constants cannot be changed');
+    if (!entry.ref) throw new Error('this value cannot be changed');
     if (!t || t.code === 7 || t.code === 6) throw new Error('Edit individual elements/fields instead');
     let value;
     try {

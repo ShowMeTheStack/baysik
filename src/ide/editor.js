@@ -75,16 +75,26 @@
         const pos = this.posAt(e.clientX, e.clientY);
         this.emit('context', pos, e);
       });
+      // Hover: after the mouse rests ~300ms over a word, emit 'hover'; any movement emits 'hoverOut'
+      // so a sticky callout can start its grace-period timer (and cancel it if the mouse enters it).
       let hoverTimer = null;
       ta.addEventListener('mousemove', (e) => {
         clearTimeout(hoverTimer);
         this.hideTip();
+        this.emit('hoverOut');
         hoverTimer = setTimeout(() => {
           const pos = this.posAt(e.clientX, e.clientY);
           if (pos) this.emit('hover', pos, e.clientX, e.clientY);
-        }, 350);
+        }, 300);
       });
-      ta.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); this.hideTip(); });
+      ta.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); this.hideTip(); this.emit('hoverOut'); });
+      // Touch devices have no hover: a tap on a word acts like hovering it
+      ta.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+        if (ta.selectionStart !== ta.selectionEnd) return;
+        const pos = this.posAt(e.clientX, e.clientY);
+        if (pos) setTimeout(() => this.emit('hover', pos, e.clientX, e.clientY, true), 0);
+      });
       this.ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => this.syncScroll()) : null;
       if (this.ro) this.ro.observe(this.main);
     }

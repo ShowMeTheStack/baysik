@@ -424,6 +424,17 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 .btn:disabled { opacity: .45; cursor: default; }
 
+/* ===== Debug hover callout ============================================== */
+.ed-callout { position: fixed; z-index: 950; width: min(520px, 94vw); max-height: min(60vh, 520px); overflow: auto; background: var(--menu); color: var(--menu-fg);
+  border: 1px solid var(--accent); box-shadow: var(--shadow); border-radius: var(--radius); font: 12.5px/1.45 var(--font-code); }
+:root[data-theme="qbasic"] .ed-callout { background: #000080; color: #e8e8e8; border: 2px solid #55ffff; box-shadow: 6px 6px 0 #000; }
+.ed-callout .callout-expr { padding: 5px 8px; border-bottom: 1px solid var(--border); font-weight: 700; white-space: pre-wrap; word-break: break-all; }
+.ed-callout .callout-note { padding: 4px 8px; color: var(--muted); font: 11px var(--font-ui); border-top: 1px solid var(--border); }
+.ed-callout .vrow { grid-template-columns: minmax(90px, 38%) 90px 1fr; }
+.vrow .vv.editable { cursor: pointer; text-decoration: underline dotted rgba(127,127,127,.6); text-underline-offset: 3px; }
+.vrow .vv.editable:hover { background: rgba(127,127,127,.18); }
+.vrow.pager { display: block; padding: 2px 0; }
+
 </style>
 </head>
 <body>
@@ -7059,6 +7070,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     const isArray = !!s.isArray;
     return {
       name: s.display || s.key,
+      key: s.key, base: s.base,
       type: isArray ? typeName({ code: 7, elem: s.type }) : typeName(s.type),
       vtype: s.type,
       isArray,
@@ -7094,36 +7106,85 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     return out;
   };
 
-  /** Children of an expandable entry (array elements page / record fields) */
+  /**
+   * Children of an expandable entry. Arrays fold one dimension at a time:
+   *   grid(…)  ->  grid(3, …)  ->  grid(3, 7) = value
+   * Records drill down field by field. Returns {items, total} (paged by start/count).
+   */
   Debug.children = function (entry, start, count) {
     const v = entry.value;
+    start = start || 0; count = count || 100;
     const out = [];
     if (v instanceof B.BArray) {
-      start = start || 0; count = count || 100;
-      const n = v.length;
-      for (let i = start; i < Math.min(n, start + count); i++) {
-        // flat index -> subscripts (column-major)
-        const subs = [];
-        let r = i;
-        for (let d = 0; d < v.dims.length; d++) {
-          const ext = v.dims[d].hi - v.dims[d].lo + 1;
-          subs.push(v.dims[d].lo + (r % ext));
-          r = Math.floor(r / ext);
+      const prefix = entry.prefix || [];
+      const d = prefix.length;
+      const dim = v.dims[d];
+      const total = dim.hi - dim.lo + 1;
+      const last = d === v.dims.length - 1;
+      for (let s = dim.lo + start; s <= dim.hi && s < dim.lo + start + count; s++) {
+        const subs = prefix.concat([s]);
+        if (!last) {
+          const rest = v.dims.slice(d + 1).map(() => '…').join(', ');
+          out.push({ name: '(' + subs.join(', ') + ', ' + rest + ')', type: typeName(v.type) + ' row', vtype: { code: 7, elem: v.type },
+            value: v, prefix: subs, text: '', expandable: true, isGroup: true });
+        } else {
+          const i = v.index(subs);
+          const val = v.data[i];
+          out.push({ name: '(' + subs.join(', ') + ')', type: typeName(v.type), vtype: v.type, ref: new B.Ref(v.data, i), value: val,
+            text: fmtValue(val, v.type), expandable: v.type.code === 6 });
         }
-        const ref = new B.Ref(v.data, i);
-        const val = v.data[i];
-        out.push({ name: '(' + subs.join(', ') + ')', type: typeName(v.type), vtype: v.type, ref, value: val, text: fmtValue(val, v.type), expandable: v.type.code === 6 });
       }
-      return { items: out, total: n };
+      return { items: out, total };
     }
     if (v && typeof v === 'object' && v.__def) {
       for (const f of v.__def.fields) {
-        const ref = new B.Ref(v, f.name);
-        out.push({ name: '.' + (f.display || f.name), type: typeName(f.type), vtype: f.type, ref, value: v[f.name], text: fmtValue(v[f.name], f.type), expandable: f.type.code === 6 });
+        out.push({ name: '.' + (f.display || f.name), type: typeName(f.type), vtype: f.type, ref: new B.Ref(v, f.name), value: v[f.name],
+          text: fmtValue(v[f.name], f.type), expandable: f.type.code === 6 });
       }
       return { items: out, total: out.length };
     }
     return { items: [], total: 0 };
+  };
+
+  /** CONSTs visible from frame fi (read-only) */
+  Debug.constants = function (vm, fi) {
+    const frame = vm.frames[fi === undefined ? vm.frames.length - 1 : fi];
+    const prog = vm.prog;
+    const out = [];
+    const add = (scope, where) => {
+      if (!scope || !scope.consts) return;
+      for (const [k, c] of scope.consts) {
+        out.push({ name: c.display || k.replace(/\*$/, ''), base: k.replace(/[%&!#$*]$/, ''), type: 'CONST ' + typeName(c.type), vtype: c.type, value: c.value,
+          text: fmtValue(c.value, c.type), readOnly: true, isConst: true, where });
+      }
+    };
+    if (frame.proc.kind !== 'module' && frame.proc.scope) add(frame.proc.scope, 'local');
+    add(prog.module, 'module');
+    return out;
+  };
+
+  /**
+   * Resolve the variable under the mouse (identifier token from B.wordAt) in frame fi.
+   * Returns a variables-tree entry (array/record/primitive), a read-only const entry, or null.
+   */
+  Debug.hoverEntry = function (vm, word, wantArray, fi) {
+    const raw = word.toUpperCase();
+    const m = /^([A-Z][A-Z0-9.]*?)([%&!#$]?)$/.exec(raw);
+    if (!m) return null;
+    let base = m[1], sfx = m[2];
+    const tryFind = (b) => {
+      const consts = Debug.constants(vm, fi);
+      const c = consts.find((x) => x.base === b && (!sfx || (x.vtype && x.vtype.sfx === sfx)));
+      if (c) return c;
+      const vars = Debug.variables(vm, fi);
+      const all = vars.locals.concat(vars.globals);
+      const cand = all.filter((e) => e.base === b && (!sfx || (e.vtype && e.vtype.sfx === sfx) || (e.key && e.key.endsWith(sfx))));
+      if (!cand.length) return null;
+      return cand.find((e) => !!e.isArray === !!wantArray) || cand[0];
+    };
+    let e = tryFind(base);
+    if (!e && base.includes('.')) e = tryFind(base.split('.')[0]);
+    return e;
   };
 
   /**
@@ -7132,6 +7193,8 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
    */
   Debug.assign = function (vm, entry, text, fi) {
     const t = entry.vtype;
+    if (entry.readOnly || entry.isConst) throw new Error('constants cannot be changed');
+    if (!entry.ref) throw new Error('this value cannot be changed');
     if (!t || t.code === 7 || t.code === 6) throw new Error('Edit individual elements/fields instead');
     let value;
     try {
@@ -11198,16 +11261,26 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         const pos = this.posAt(e.clientX, e.clientY);
         this.emit('context', pos, e);
       });
+      // Hover: after the mouse rests ~300ms over a word, emit 'hover'; any movement emits 'hoverOut'
+      // so a sticky callout can start its grace-period timer (and cancel it if the mouse enters it).
       let hoverTimer = null;
       ta.addEventListener('mousemove', (e) => {
         clearTimeout(hoverTimer);
         this.hideTip();
+        this.emit('hoverOut');
         hoverTimer = setTimeout(() => {
           const pos = this.posAt(e.clientX, e.clientY);
           if (pos) this.emit('hover', pos, e.clientX, e.clientY);
-        }, 350);
+        }, 300);
       });
-      ta.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); this.hideTip(); });
+      ta.addEventListener('mouseleave', () => { clearTimeout(hoverTimer); this.hideTip(); this.emit('hoverOut'); });
+      // Touch devices have no hover: a tap on a word acts like hovering it
+      ta.addEventListener('pointerup', (e) => {
+        if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+        if (ta.selectionStart !== ta.selectionEnd) return;
+        const pos = this.posAt(e.clientX, e.clientY);
+        if (pos) setTimeout(() => this.emit('hover', pos, e.clientX, e.clientY, true), 0);
+      });
       this.ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => this.syncScroll()) : null;
       if (this.ro) this.ro.observe(this.main);
     }
@@ -12081,6 +12154,208 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
   RC.Runner = Runner;
 })(RC);
 
+// ==== ide/vartree.js ====
+// Variable tree widget shared by the Variables panel and the editor hover callout.
+// Arrays fold one dimension at a time, records drill down to primitive fields, values edit in place.
+(function (RC) {
+  'use strict';
+  const { h } = RC.UI;
+  const B = RC.Basic;
+  const PAGE = 100;
+
+  class VarTree {
+    /**
+     * @param opts {app, fi: () => frameIndex, canEdit: (entry) => bool, onEdited: () => void, state?}
+     */
+    constructor(opts) {
+      this.opts = opts;
+      this.state = opts.state || { expanded: new Set(), pages: new Map(), prev: new Map() };
+    }
+    vm() { return this.opts.app.runner.vm; }
+
+    /** Render sections [{title, entries, keyPrefix}] into el */
+    render(el, sections) {
+      el.innerHTML = '';
+      for (const sec of sections) {
+        if (sec.title) el.appendChild(h('div.vsec', sec.title + (sec.entries ? ' (' + sec.entries.length + ')' : '')));
+        if (sec.entries && !sec.entries.length && sec.empty !== false) el.appendChild(h('div.empty', { style: { padding: '4px 10px' } }, 'none'));
+        for (const e of sec.entries || []) this.row(el, e, 0, sec.keyPrefix + e.name);
+      }
+    }
+
+    row(el, e, depth, key) {
+      const st = this.state;
+      const changed = st.prev.has(key) && st.prev.get(key) !== e.text && !e.isGroup;
+      st.prev.set(key, e.text);
+      const open = st.expanded.has(key);
+      const tw = h('span.twisty', { role: e.expandable ? 'button' : null, 'aria-label': e.expandable ? (open ? 'Collapse' : 'Expand') : null }, e.expandable ? (open ? '▾' : '▸') : '');
+      const editable = !e.readOnly && !e.isGroup && e.ref && e.vtype && e.vtype.code <= 5 && this.opts.canEdit(e);
+      const nameCell = h('div.vn', { style: { paddingLeft: (6 + depth * 14) + 'px' } }, tw, h('span', e.name),
+        e.param ? h('span.vbadge', 'param') : null, e.isRet ? h('span.vbadge', 'result') : null, e.isConst ? h('span.vbadge', 'const') : null);
+      const valText = e.isGroup ? '' : e.text;
+      const valCell = h('div.vv' + (changed ? '.changed' : '') + (editable ? '.editable' : ''),
+        { title: editable ? 'Click to change' : e.readOnly ? 'Read-only' : (e.expandable ? 'Expand to see elements' : '') , tabindex: editable ? '0' : null }, valText);
+      const rowEl = h('div.vrow', nameCell, h('div.vt', e.type), valCell);
+      const toggle = () => { if (open) st.expanded.delete(key); else st.expanded.add(key); this.refresh(); };
+      if (e.expandable) { tw.addEventListener('click', toggle); nameCell.addEventListener('dblclick', toggle); }
+      if (editable) {
+        const start = () => this.edit(valCell, e);
+        valCell.addEventListener('click', start);
+        valCell.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); start(); } });
+      }
+      el.appendChild(rowEl);
+      if (e.expandable && open) {
+        const pk = key + '#page';
+        const start = st.pages.get(pk) || 0;
+        let kids;
+        try { kids = B.Debug.children(e, start, PAGE); } catch (err) { kids = { items: [], total: 0 }; }
+        for (const c of kids.items) this.row(el, Object.assign(c, { readOnly: e.readOnly }), depth + 1, key + c.name);
+        if (kids.total > PAGE) {
+          const nav = h('div.vrow.pager', h('div', { style: { paddingLeft: (20 + depth * 14) + 'px', gridColumn: '1 / -1' } },
+            h('button.small-btn', { type: 'button', disabled: start === 0, onclick: () => { st.pages.set(pk, Math.max(0, start - PAGE)); this.refresh(); } }, '◀ prev'),
+            ' ', h('span.muted', `${start + 1}–${Math.min(kids.total, start + PAGE)} of ${kids.total}`), ' ',
+            h('button.small-btn', { type: 'button', disabled: start + PAGE >= kids.total, onclick: () => { st.pages.set(pk, start + PAGE); this.refresh(); } }, 'next ▶')));
+          el.appendChild(nav);
+        }
+      }
+    }
+
+    edit(cell, e) {
+      const vm = this.vm();
+      if (!vm || cell.querySelector('input')) return;
+      const cur = typeof e.value === 'string' ? '"' + RC.fromCP437(e.value, false) + '"' : e.text;
+      const inp = h('input', { type: 'text', value: cur, 'aria-label': 'New value for ' + e.name, spellcheck: 'false' });
+      cell.innerHTML = '';
+      cell.appendChild(inp);
+      inp.focus(); inp.select();
+      let done = false;
+      const commit = (ok) => {
+        if (done) return;
+        done = true;
+        if (ok && inp.value !== cur) {
+          try {
+            B.Debug.assign(vm, e, inp.value, this.opts.fi());
+            RC.UI.toast('Changed ' + e.name, 'ok', 1500);
+          } catch (err) { RC.UI.toast('Could not set ' + e.name + ': ' + err.message, 'err'); }
+        }
+        if (this.opts.onEdited) this.opts.onEdited();
+        else this.refresh();
+      };
+      inp.addEventListener('keydown', (ev) => {
+        ev.stopPropagation();
+        if (ev.key === 'Enter') commit(true);
+        if (ev.key === 'Escape') commit(false);
+      });
+      inp.addEventListener('blur', () => commit(true));
+    }
+    refresh() { if (this.opts.refresh) this.opts.refresh(); }
+  }
+
+  RC.VarTree = VarTree;
+})(RC);
+
+// ==== ide/callout.js ====
+// Debug hover callout: shows a variable's value while paused and lets you edit it in place.
+// Sticky: moving the mouse from the word into the callout keeps it open.
+(function (RC) {
+  'use strict';
+  const { h } = RC.UI;
+  const B = RC.Basic;
+
+  class HoverCallout {
+    constructor(app) {
+      this.app = app;
+      this.el = null;
+      this.hideTimer = null;
+      this.anchor = null; // {doc, line, col}
+      this.state = { expanded: new Set(), pages: new Map(), prev: new Map() };
+      document.addEventListener('pointerdown', (e) => { if (this.el && !this.el.contains(e.target)) this.hide(); }, true);
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.el) { this.hide(); } }, true);
+    }
+    isOpen() { return !!this.el; }
+
+    /** Show for the identifier at pos in doc (pos: {line, col, text}) */
+    showFor(doc, pos, x, y) {
+      const vm = this.app.runner.vm;
+      if (!vm || (vm.state !== 'paused' && vm.state !== 'error')) return;
+      const w = B.wordAt(pos.text, pos.col);
+      if (!w || w.kind !== 'id') return;
+      const same = this.anchor && this.anchor.doc === doc && this.anchor.line === pos.line && this.anchor.col === w.col;
+      if (same && this.el) { this.cancelHide(); return; }
+      const fi = vm.frames.length - 1; // hover always looks at the current (topmost) frame
+      const wantArray = /\(/.test(w.expr) || /^\s*\(/.test(pos.text.slice(w.end));
+      let entry = null;
+      try { entry = B.Debug.hoverEntry(vm, w.word, wantArray, fi); } catch (e) { entry = null; }
+      let exprVal = null;
+      if (w.expr !== w.word || !entry) {
+        try { const r = B.Debug.evaluate(vm, w.expr, fi); exprVal = w.expr + ' = ' + B.Debug.fmtValue(r.value, r.type); } catch (e) { exprVal = null; }
+      }
+      if (!entry && !exprVal) return;
+      this.anchor = { doc, line: pos.line, col: w.col };
+      this.render(entry, exprVal, fi, x, y);
+    }
+
+    render(entry, exprVal, fi, x, y) {
+      this.hide(true);
+      const vm = this.app.runner.vm;
+      const body = h('div.callout-body');
+      const box = h('div.ed-callout', { role: 'dialog', 'aria-label': 'Variable value' });
+      if (exprVal) box.appendChild(h('div.callout-expr', exprVal));
+      if (entry) box.appendChild(body);
+      const deeper = vm.frames.length > 1;
+      const note = entry && entry.readOnly ? 'Constants cannot be changed.'
+        : entry ? 'Click a value to change it' + (deeper ? ' (current frame). Callers\' frames: Call Stack ▸ Variables.' : '.') : '';
+      if (note) box.appendChild(h('div.callout-note', note));
+      document.body.appendChild(box);
+      this.el = box;
+      if (entry) {
+        const key = 'H:' + entry.name;
+        if (entry.expandable) this.state.expanded.add(key);
+        const tree = new RC.VarTree({
+          app: this.app, state: this.state, fi: () => fi,
+          canEdit: () => vm.frames.length - 1 === fi && vm.state === 'paused',
+          refresh: () => draw(),
+          onEdited: () => { this.refreshEntry(entry, fi); draw(); this.app.panels.refreshAll(); },
+        });
+        const draw = () => { tree.render(body, [{ entries: [entry], keyPrefix: 'H:', empty: false }]); this.place(x, y); };
+        this.refreshEntry = (e, f) => {
+          // re-read the root value (records/arrays are live objects; primitives need a fresh read)
+          if (e.ref) { e.value = e.ref.c[e.ref.k]; e.text = B.Debug.fmtValue(e.value, e.isArray ? { code: 7 } : e.vtype); }
+          void f;
+        };
+        draw();
+      }
+      this.place(x, y);
+      box.addEventListener('mouseenter', () => this.cancelHide());
+      box.addEventListener('mouseleave', () => this.scheduleHide(500));
+    }
+    place(x, y) {
+      const box = this.el;
+      if (!box) return;
+      const w = box.offsetWidth, hh = box.offsetHeight;
+      let left = Math.min(x + 4, window.innerWidth - w - 8);
+      let top = y + 14;
+      if (top + hh > window.innerHeight - 8) top = Math.max(8, y - hh - 10);
+      box.style.left = Math.max(8, left) + 'px';
+      box.style.top = top + 'px';
+    }
+    scheduleHide(ms) {
+      if (!this.el) return;
+      if (this.el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+      clearTimeout(this.hideTimer);
+      this.hideTimer = setTimeout(() => this.hide(), ms || 450);
+    }
+    cancelHide() { clearTimeout(this.hideTimer); }
+    hide(keepAnchor) {
+      clearTimeout(this.hideTimer);
+      if (this.el) { this.el.remove(); this.el = null; }
+      if (!keepAnchor) this.anchor = null;
+    }
+  }
+
+  RC.HoverCallout = HoverCallout;
+})(RC);
+
 // ==== ide/panels.js ====
 // Bottom debug panels.
 (function (RC) {
@@ -12202,80 +12477,30 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     refreshVars() {
       const body = this.varsBody;
       if (!body) return;
-      body.innerHTML = '';
       const vm = this.vm();
       if (!this.inspectable()) {
-        body.appendChild(h('div.empty', vm && (vm.state === 'running' || vm.state === 'waiting') ? 'Program is running. Pause (Ctrl+Break) or hit a breakpoint to inspect variables.' : 'Run your program and pause it (or set a breakpoint) to see variables here. Double-click a value to change it.'));
+        body.innerHTML = '';
+        body.appendChild(h('div.empty', vm && (vm.state === 'running' || vm.state === 'waiting') ? 'Program is running. Pause (Ctrl+Break) or hit a breakpoint to inspect variables.' : 'Run your program and pause it (or set a breakpoint) to see variables here. Click a value to change it; arrays and records unfold with ▸.'));
         this.varsScope.textContent = '';
         return;
       }
       const fi = this.app.selectedFrameIndex();
-      let vars;
-      try { vars = B.Debug.variables(vm, fi); } catch (e) { body.appendChild(h('div.empty', 'Variables unavailable: ' + e.message)); return; }
+      let vars, consts;
+      try { vars = B.Debug.variables(vm, fi); consts = B.Debug.constants(vm, fi); } catch (e) { body.innerHTML = ''; body.appendChild(h('div.empty', 'Variables unavailable: ' + e.message)); return; }
       const filter = (this.varsFilter.value || '').toUpperCase();
-      this.varsScope.textContent = 'Frame: ' + (vars.scopeName || 'Main module');
-      const section = (title, list, prefix) => {
-        const shown = list.filter((v) => !filter || v.name.toUpperCase().includes(filter));
-        body.appendChild(h('div.vsec', title + ' (' + shown.length + ')'));
-        if (!shown.length) body.appendChild(h('div.empty', { style: { padding: '4px 10px' } }, 'none'));
-        for (const v of shown) this.varRow(body, v, 0, prefix + v.name, fi);
-      };
-      if (vars.locals.length || vars.scopeName) section('Locals — ' + vars.scopeName, vars.locals, 'L:' + vars.scopeName + ':');
-      section('Module-level (global)', vars.globals, 'G:');
-    }
-    varRow(body, v, depth, key, fi) {
-      const prevKey = key;
-      const changed = this.prevValues.has(prevKey) && this.prevValues.get(prevKey) !== v.text;
-      this.prevValues.set(prevKey, v.text);
-      const tw = h('span.twisty', v.expandable ? (this.expanded.has(key) ? '▾' : '▸') : '');
-      const nameCell = h('div.vn', { style: { paddingLeft: (6 + depth * 14) + 'px' } }, tw, h('span', v.name),
-        v.param ? h('span.vbadge', 'param') : null, v.isRet ? h('span.vbadge', 'result') : null);
-      const valCell = h('div.vv' + (changed ? '.changed' : ''), { title: 'Double-click to change' }, v.text);
-      const row = h('div.vrow', nameCell, h('div.vt', v.type), valCell);
-      if (v.expandable) {
-        tw.addEventListener('click', () => { if (this.expanded.has(key)) this.expanded.delete(key); else this.expanded.add(key); this.refreshVars(); });
+      const f = (list) => list.filter((v) => !filter || v.name.toUpperCase().includes(filter));
+      const top = fi === vm.frames.length - 1;
+      this.varsScope.textContent = 'Frame #' + fi + ': ' + (vars.scopeName || 'Main module') + (top ? ' (current)' : ' (caller — editable here)');
+      if (!this.varTree) {
+        this.varTree = new RC.VarTree({ app: this.app, fi: () => this.app.selectedFrameIndex(), canEdit: () => true, refresh: () => this.refreshVars(), onEdited: () => this.refreshAll() });
       }
-      const editable = !(v.vtype && (v.vtype.code === 6)) && !v.isArray;
-      if (editable && v.ref) {
-        valCell.addEventListener('dblclick', () => this.editValue(valCell, v, fi));
-      }
-      body.appendChild(row);
-      if (v.expandable && this.expanded.has(key)) {
-        const pageKey = key + '#page';
-        const start = this.pageStart && this.pageStart.get(pageKey) || 0;
-        const kids = B.Debug.children(v, start, 100);
-        for (const c of kids.items) this.varRow(body, c, depth + 1, key + c.name, fi);
-        if (kids.total > 100) {
-          const nav = h('div.vrow', h('div', { style: { paddingLeft: (20 + depth * 14) + 'px' } },
-            h('button.small-btn', { type: 'button', disabled: start === 0, onclick: () => { this.pageStart = this.pageStart || new Map(); this.pageStart.set(pageKey, Math.max(0, start - 100)); this.refreshVars(); } }, '◀ prev'),
-            ' ', h('span.muted', `${start}–${Math.min(kids.total, start + 100) - 1} of ${kids.total}`), ' ',
-            h('button.small-btn', { type: 'button', disabled: start + 100 >= kids.total, onclick: () => { this.pageStart = this.pageStart || new Map(); this.pageStart.set(pageKey, start + 100); this.refreshVars(); } }, 'next ▶')));
-          body.appendChild(nav);
-        }
-      }
-    }
-    editValue(cell, v, fi) {
-      const vm = this.vm();
-      if (!vm) return;
-      const cur = typeof v.value === 'string' ? '"' + RC.fromCP437(v.value, false) + '"' : v.text;
-      const inp = h('input', { type: 'text', value: cur, 'aria-label': 'New value for ' + v.name });
-      cell.innerHTML = '';
-      cell.appendChild(inp);
-      inp.focus(); inp.select();
-      let done = false;
-      const commit = (ok) => {
-        if (done) return;
-        done = true;
-        if (ok) {
-          try {
-            B.Debug.assign(vm, v, inp.value, fi);
-            this.app.toast('Changed ' + v.name, 'ok');
-          } catch (e) { this.app.toast('Could not set ' + v.name + ': ' + e.message, 'err'); }
-        }
-        this.refreshAll();
-      };
-      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(true); if (e.key === 'Escape') commit(false); e.stopPropagation(); });
-      inp.addEventListener('blur', () => commit(true));
+      const sections = [];
+      if (vars.scopeName) sections.push({ title: 'Locals — ' + vars.scopeName, entries: f(vars.locals), keyPrefix: 'L' + fi + ':' + vars.scopeName + ':' });
+      sections.push({ title: 'Module-level (global)', entries: f(vars.globals), keyPrefix: 'G:' });
+      if (consts.length) sections.push({ title: 'Constants (read-only)', entries: f(consts), keyPrefix: 'C:' });
+      const scroll = body.scrollTop;
+      this.varTree.render(body, sections);
+      body.scrollTop = scroll;
     }
 
     // ---- Watch ---------------------------------------------------------------------------------------
@@ -13608,6 +13833,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.runner.audio.setVolume(this.settings.sound ? this.settings.volume * 0.16 : 0);
       this.runner.setSpeed(this.settings.speed);
       this.panels = new RC.Panels(this, this.el('bottomTabs'), this.el('bottomBody'));
+      this.callout = new RC.HoverCallout(this);
       this.buildMenus();
       this.buildToolbar();
       this.buildScreenActions();
@@ -13993,7 +14219,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       editor.on('find', (rep) => this.openFind(rep));
       editor.on('gotoLine', () => this.gotoLineDialog());
       editor.on('help', (line, col) => { const w = B.wordAt(line, col); RC.Help.open(this, w ? w.word : null); });
-      editor.on('hover', (pos, x, y) => this.hover(d, pos, x, y));
+      editor.on('hover', (pos, x, y) => this.callout.showFor(d, pos, x, y));
+      editor.on('hoverOut', () => this.callout.scheduleHide(450));
       editor.on('context', (pos, e) => this.editorContextMenu(d, pos, e));
       editor.on('focus', () => { if (this.console && this.console.active && !this.runner.isActive()) { /* editing alongside console */ } });
       editor.setBreakpoints(this.breakpoints.get(path) || new Map());
@@ -14556,7 +14783,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
 
     bindRunner() {
       const r = this.runner;
-      r.on('state', () => { this.updateUI(); });
+      r.on('state', (st) => { if (st !== 'paused' && st !== 'error') this.callout.hide(); this.updateUI(); });
       r.on('pause', (why) => this.onPaused(why));
       r.on('end', (info) => this.onEnded(info));
       r.on('error', (info, vm) => this.onRuntimeError(info, vm));

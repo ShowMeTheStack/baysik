@@ -414,3 +414,14 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 .btn:disabled { opacity: .45; cursor: default; }
+
+/* ===== Debug hover callout ============================================== */
+.ed-callout { position: fixed; z-index: 950; width: min(520px, 94vw); max-height: min(60vh, 520px); overflow: auto; background: var(--menu); color: var(--menu-fg);
+  border: 1px solid var(--accent); box-shadow: var(--shadow); border-radius: var(--radius); font: 12.5px/1.45 var(--font-code); }
+:root[data-theme="qbasic"] .ed-callout { background: #000080; color: #e8e8e8; border: 2px solid #55ffff; box-shadow: 6px 6px 0 #000; }
+.ed-callout .callout-expr { padding: 5px 8px; border-bottom: 1px solid var(--border); font-weight: 700; white-space: pre-wrap; word-break: break-all; }
+.ed-callout .callout-note { padding: 4px 8px; color: var(--muted); font: 11px var(--font-ui); border-top: 1px solid var(--border); }
+.ed-callout .vrow { grid-template-columns: minmax(90px, 38%) 90px 1fr; }
+.vrow .vv.editable { cursor: pointer; text-decoration: underline dotted rgba(127,127,127,.6); text-underline-offset: 3px; }
+.vrow .vv.editable:hover { background: rgba(127,127,127,.18); }
+.vrow.pager { display: block; padding: 2px 0; }
