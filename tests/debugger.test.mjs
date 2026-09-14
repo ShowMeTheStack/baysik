@@ -107,8 +107,11 @@ test('records and arrays children + edit element', () => {
   vm.start(); runUntilPause(vm);
   const g = B.Debug.variables(vm).globals;
   const arr = g.find((x) => x.name === 'arr');
-  const kids = B.Debug.children(arr);
-  assert.equal(kids.total, 6);
+  const rows = B.Debug.children(arr);          // first dimension: (0, …) (1, …) (2, …)
+  assert.equal(rows.total, 3);
+  assert.ok(rows.items[1].isGroup);
+  const kids = B.Debug.children(rows.items[1]); // (1, 0) (1, 1)
+  assert.equal(kids.total, 2);
   const el = kids.items.find((k) => k.name === '(1, 1)');
   assert.equal(el.value, 7);
   B.Debug.assign(vm, el, '42');
@@ -118,6 +121,8 @@ test('records and arrays children + edit element', () => {
   B.Debug.assign(vm, f[1], 'hello');
   assert.equal(r.value.S, 'hel');
   assert.equal(B.Debug.evaluate(vm, 'arr(1,1) + r.a').value, 44);
+  // constants are listed read-only and cannot be assigned
+
 });
 
 test('watch errors are reported, not fatal', () => {
