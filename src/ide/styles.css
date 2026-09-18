@@ -425,3 +425,4 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 .vrow .vv.editable { cursor: pointer; text-decoration: underline dotted rgba(127,127,127,.6); text-underline-offset: 3px; }
 .vrow .vv.editable:hover { background: rgba(127,127,127,.18); }
 .vrow.pager { display: block; padding: 2px 0; }
+.tab .lock { opacity: .7; font-size: 11px; }

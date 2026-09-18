@@ -78,7 +78,7 @@
       }
       window.addEventListener('beforeunload', (e) => {
         this.saveSession();
-        if (this.docs.some((d) => d.dirty) && !this.settings.autosave) { e.preventDefault(); e.returnValue = ''; }
+        if (this.docs.some((d) => d.dirty && (this.isProtected(d.path) || !this.settings.autosave))) { e.preventDefault(); e.returnValue = ''; }
       });
       setInterval(() => this.autosaveTick(), 4000);
     }
@@ -444,6 +444,8 @@
     }
     activate(d) {
       this.active = d;
+      if (d && this.isProtected(d.path)) this.setStatus('Example/tutorial file — edit and run freely; Save (Ctrl+S) keeps your changes as your own copy');
+      else if (d && this.statusMsg && /^Example\/tutorial file/.test(this.statusMsg)) this.setStatus('');
       for (const x of this.docs) x.editor.show(x === d);
       this.renderTabs();
       this.renderOutline();
@@ -457,6 +459,7 @@
       for (const d of this.docs) {
         const x = h('span.x', { title: 'Close', role: 'button', 'aria-label': 'Close ' + d.name }, '×');
         const t = h('button.tab' + (d === this.active ? '.active' : ''), { type: 'button', role: 'tab', title: d.path, 'aria-selected': d === this.active ? 'true' : 'false' },
+          this.isProtected(d.path) ? h('span.lock', { title: 'Example/tutorial file: Save makes your own copy' }, '◇') : null,
           d.name, d.dirty ? h('span.dirty', { title: 'Unsaved changes' }) : null, x);
         t.addEventListener('click', (e) => { if (e.target === x) { this.closeDoc(d); return; } this.activate(d); d.editor.focus(); });
         t.addEventListener('auxclick', (e) => { if (e.button === 1) this.closeDoc(d); });
@@ -464,11 +467,30 @@
       }
       if (!this.docs.length) tabs.appendChild(h('span.muted', { style: { padding: '6px 10px' } }, 'No open files — use File ▸ New Program or pick a file in the explorer.'));
     }
+    /** Example, library and tutorial originals are never overwritten; edits are saved as the user's own copy. */
+    isProtected(path) { return /^C:\\(SAMPLES|LIBRARY|LESSONS)\\/i.test(path || ''); }
     async closeDoc(d) {
       if (d.dirty) {
-        const r = await RC.UI.modal({ title: 'Unsaved changes', body: h('p', `Save changes to ${d.name}?`), buttons: [{ label: 'Cancel', value: 'cancel' }, { label: "Don't Save", value: 'no' }, { label: 'Save', value: 'yes', primary: true }], cancelValue: 'cancel' });
-        if (r === 'cancel') return;
-        if (r === 'yes') this.saveDoc(d);
+        let r;
+        if (this.isProtected(d.path)) {
+          r = await RC.UI.modal({
+            title: 'Keep your changes?',
+            body: h('div', h('p', `You changed ${d.name}, which is an example/tutorial file. The original stays as it is.`), h('p', 'Save your version as your own file?')),
+            buttons: [{ label: 'Cancel', value: 'cancel' }, { label: 'Discard Changes', value: 'no' }, { label: 'Save As My Copy…', value: 'copy', primary: true }],
+            cancelValue: 'cancel',
+          });
+          if (r === 'cancel') return;
+          if (r === 'copy' && !(await this.saveCopy(d))) return;
+        } else {
+          r = await RC.UI.modal({
+            title: 'Unsaved changes', body: h('p', `Save changes to ${d.name}?`),
+            buttons: [{ label: 'Cancel', value: 'cancel' }, { label: "Don't Save", value: 'no' }, { label: 'Save As…', value: 'as' }, { label: 'Save', value: 'yes', primary: true }],
+            cancelValue: 'cancel',
+          });
+          if (r === 'cancel') return;
+          if (r === 'yes' && !this.saveDoc(d)) return;
+          if (r === 'as' && !(await this.saveAs(d))) return;
+        }
       }
       const i = this.docs.indexOf(d);
       this.docs.splice(i, 1);
@@ -480,7 +502,9 @@
     saveSession() {
       store.set('session', { open: this.docs.map((d) => d.path), active: this.active ? this.active.path : null });
     }
+    /** Write a document to its own path. Protected originals are never written (returns false). */
     saveDoc(d) {
+      if (this.isProtected(d.path)) return false;
       try {
         const perm = this.vfs.canWrite(d.path);
         this.vfs.writeFile(d.path, this.encodeText(d.editor.getValue()), { trusted: perm !== 'no' });
@@ -494,29 +518,56 @@
         return false;
       }
     }
-    save() { if (this.active && this.saveDoc(this.active)) this.setStatus('Saved ' + this.active.path); }
-    saveAll() { for (const d of this.docs) if (d.dirty) this.saveDoc(d); this.setStatus('All files saved'); }
-    autosaveTick() {
-      if (!this.settings.autosave) return;
-      for (const d of this.docs) if (d.dirty && d.path[0] === 'C') this.saveDoc(d);
-    }
-    async saveAs() {
+    async save() {
       const d = this.active;
       if (!d) return;
-      const name = await RC.UI.prompt('Save As', 'File name (e.g. GAME.BAS or C:\\MYPROGS\\GAME.BAS)', d.path);
-      if (!name) return;
+      if (this.isProtected(d.path)) { await this.saveCopy(d); return; }
+      if (this.saveDoc(d)) this.setStatus('Saved ' + d.path);
+    }
+    saveAll() { for (const d of this.docs) if (d.dirty && !this.isProtected(d.path)) this.saveDoc(d); }
+    autosaveTick() {
+      if (!this.settings.autosave) return;
+      for (const d of this.docs) if (d.dirty && d.path[0] === 'C' && !this.isProtected(d.path)) this.saveDoc(d);
+    }
+    /** Save an example/tutorial file as the user's own copy (asks for a name). */
+    async saveCopy(d) {
+      const stem = d.name.replace(/\.[^.]*$/, '').toUpperCase().slice(0, 8);
+      let n = 1, def;
+      do { def = 'C:\\MYPROGS\\' + (n > 1 ? stem.slice(0, 8 - String(n).length) + n : stem) + '.BAS'; n++; } while (this.vfs.exists(def) || this.docByPath(def));
+      return this.saveAs(d, { title: 'Save Your Copy', def, hint: 'This is an example or tutorial file, so your changes are saved as a new file of your own. Type a name, or a full path like C:\\GAMES\\MYSNAKE.BAS.' });
+    }
+    /** Save As: asks for a name; the document then refers to the new file. Returns true if saved. */
+    async saveAs(d, opts) {
+      d = d || this.active;
+      opts = opts || {};
+      if (!d) return false;
+      const name = await RC.UI.prompt(opts.title || 'Save As', 'File name (e.g. GAME.BAS or C:\\MYPROGS\\GAME.BAS)', opts.def || d.path, { hint: opts.hint });
+      if (!name) return false;
       let p = name.trim();
       if (!/\.[^\\.]*$/.test(p)) p += '.BAS';
+      if (!/^[A-Za-z]:/.test(p) && !p.startsWith('\\')) p = (this.isProtected(d.path) ? 'C:\\MYPROGS' : d.path.replace(/\\[^\\]*$/, '')) + '\\' + p;
       let r;
-      try { r = this.vfs.resolve(p); } catch (e) { RC.UI.toast('Invalid file name', 'err'); return; }
+      try { r = this.vfs.resolve(p); } catch (e) { RC.UI.toast('Invalid file name', 'err'); return false; }
+      if (this.isProtected(r.display)) { RC.UI.toast('Pick a folder outside C:\\SAMPLES, C:\\LIBRARY and C:\\LESSONS (try C:\\MYPROGS)', 'err', 5000); return false; }
       if (this.vfs.exists(r.display) && r.display.toUpperCase() !== d.path.toUpperCase()) {
-        if (!(await RC.UI.confirm('Replace file?', `${r.display} already exists. Replace it?`, 'Replace'))) return;
+        if (!(await RC.UI.confirm('Replace file?', `${RC.escapeHtml(r.display)} already exists. Replace it?`, 'Replace'))) return false;
       }
+      try {
+        const dir = r.display.replace(/\\[^\\]*$/, '');
+        if (dir.length > 3 && !this.vfs.exists(dir)) this.vfs.mkdir(dir);
+      } catch (e) { /* parent missing: writeFile reports it */ }
       const other = this.docByPath(r.display);
-      if (other && other !== d) await this.closeDoc(other);
+      if (other && other !== d) { other.dirty = false; await this.closeDoc(other); }
+      const oldPath = d.path;
       d.path = r.display; d.name = r.name;
-      if (this.saveDoc(d)) this.setStatus('Saved as ' + d.path);
+      if (!this.saveDoc(d)) { d.path = oldPath; d.name = oldPath.replace(/^.*\\/, ''); return false; }
+      // breakpoints follow the document to its new name
+      const bps = this.breakpoints.get(oldPath);
+      if (bps && bps.size) { this.breakpoints.set(d.path, new Map(bps)); if (this.isProtected(oldPath)) this.breakpoints.delete(oldPath); this.saveBreakpoints(); }
+      this.setStatus('Saved as ' + d.path);
       this.activate(d);
+      RC.UI.toast('Saved ' + d.path, 'ok');
+      return true;
     }
     async newFile() {
       const dir = this.currentDir();
