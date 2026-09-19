@@ -84,6 +84,7 @@
         if (this.docs.some((d) => d.dirty && (this.isProtected(d.path) || !this.settings.autosave))) { e.preventDefault(); e.returnValue = ''; }
       });
       setInterval(() => this.autosaveTick(), 4000);
+      window.__baysikReady = true; // signal for automated tests
     }
 
     // ---- settings / theme / layout ---------------------------------------------------------------
