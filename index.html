@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Compendium BASIC IDE</title>
+<title>Baysik — BASIC IDE</title>
 <meta name="description" content="A retro GW-BASIC and QBasic IDE in your browser: write, run and debug BASIC with every classic screen mode, sound, files and guided tours.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230000aa'/%3E%3Cpath d='M3 4h6v1H4v2h4v1H4v3H3z' fill='%23ffff55'/%3E%3Crect x='10' y='10' width='3' height='2' fill='%23fff'/%3E%3C/svg%3E">
 <style>
@@ -172,6 +172,9 @@ a { color: var(--accent); }
 .workspace { display: grid; grid-template-columns: var(--explorer-w, 210px) 4px minmax(240px, 1fr) 4px var(--screen-w, 46%); min-height: 0; }
 .workspace.no-explorer { grid-template-columns: 0 0 minmax(240px, 1fr) 4px var(--screen-w, 46%); }
 .workspace.no-explorer .explorer { display: none; }
+.workspace > .explorer { grid-column: 1; grid-row: 1; } .workspace > .splitter[data-split="explorer"] { grid-column: 2; grid-row: 1; }
+.workspace > .editor-area { grid-column: 3; grid-row: 1; } .workspace > .splitter[data-split="screen"] { grid-column: 4; grid-row: 1; }
+.workspace > .screen-area { grid-column: 5; grid-row: 1; }
 .pane { background: var(--pane); min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .pane-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 8px; background: var(--pane-head); color: var(--pane-head-fg); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; min-height: 26px; }
 .pane-head.small { font-size: 11px; }
@@ -397,13 +400,13 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 
 /* ===== Mobile ============================================================ */
 .mobile-tabs { display: none; }
-@media (max-width: 820px) {
+@media (max-width: 820px), (max-height: 480px) {
   .app { grid-template-rows: auto auto auto minmax(0, 1fr) 0 0 auto; }
   .mobile-tabs { display: flex; background: var(--pane2); border-bottom: 1px solid var(--border); }
   .mobile-tabs button { flex: 1; border: 0; background: none; padding: 8px 0; color: var(--muted); border-bottom: 2px solid transparent; }
   .mobile-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
   .workspace { grid-template-columns: 1fr !important; }
-  .workspace > * { display: none !important; }
+  .workspace > * { display: none !important; grid-column: 1 !important; }
   .splitter { display: none !important; }
   .app[data-mview="editor"] .editor-area, .app[data-mview="screen"] .screen-area, .app[data-mview="files"] .explorer { display: flex !important; }
   .app[data-mview="debug"] .workspace { display: none; }
@@ -435,6 +438,46 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 .vrow .vv.editable:hover { background: rgba(127,127,127,.18); }
 .vrow.pager { display: block; padding: 2px 0; }
 .tab .lock { opacity: .7; font-size: 11px; }
+.imm-log .jump { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.list-row.sel { background: var(--menu-sel); color: var(--menu-sel-fg); }
+.list-row.sel .muted, .list-row.sel .err { color: inherit; }
+
+/* ===== Tablet / small laptop: explorer becomes a drawer ================= */
+.tb-files, .drawer-close, .drawer-scrim { display: none; }
+@media (min-width: 821px) and (max-width: 1199px) and (min-height: 481px) {
+  .workspace, .workspace.no-explorer { grid-template-columns: 0 0 minmax(260px, 1fr) 4px var(--screen-w, 46%); }
+  .workspace .explorer { display: flex; position: fixed; left: 0; top: 0; bottom: 0; width: min(320px, 80vw); z-index: 700;
+    transform: translateX(-102%); transition: transform .2s ease; box-shadow: var(--shadow); }
+  .app.explorer-open .workspace .explorer { transform: none; }
+  .app.explorer-open .drawer-scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 650; }
+  .splitter[data-split="explorer"] { display: none; }
+  .tb-files, .drawer-close { display: inline-flex; }
+  .toolbar .tb-btn .lbl { display: none; }
+  .toolbar .tb-btn.primary .lbl { display: inline; }
+}
+@media (min-width: 821px) and (max-height: 620px) and (min-height: 481px) {
+  .app { grid-template-rows: auto auto auto minmax(0, 1fr) auto min(var(--bottom-h, 230px), 32vh) auto; }
+  .menubar { min-height: 22px; }
+  .toolbar { padding: 2px 6px; }
+  .tb-btn { height: 24px; }
+}
+/* ===== Touch keypad under the output screen ============================== */
+.keypad { display: none; gap: 6px; padding: 6px; background: var(--pane2); border-top: 1px solid var(--border); flex-wrap: wrap; justify-content: center; align-items: center; }
+.app.touch.running .keypad, .app.touch.console .keypad { display: flex; }
+.keypad button { min-width: 44px; height: 40px; border: 1px solid var(--border); background: var(--btn); color: var(--btn-fg); border-radius: 6px; font: 600 14px var(--font-ui); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.keypad button:active, .keypad button.down { background: var(--accent); color: var(--accent-fg); }
+.keypad .dpad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 40px); gap: 4px; }
+.keypad .dpad .up { grid-column: 2; grid-row: 1; } .keypad .dpad .left { grid-column: 1; grid-row: 2; }
+.keypad .dpad .down { grid-column: 2; grid-row: 2; } .keypad .dpad .right { grid-column: 3; grid-row: 2; }
+.softkb { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; }
+@media (max-height: 480px) and (orientation: landscape) {
+  .app.touch.running .screen-area, .app.touch.console .screen-area { display: grid !important; grid-template: "head head" auto "wrap pad" minmax(0, 1fr) / minmax(0, 1fr) auto; }
+  .screen-area > .pane-head { grid-area: head; }
+  .screen-area > .screen-wrap { grid-area: wrap; }
+  .screen-area > .keypad { grid-area: pad; flex-direction: column; flex-wrap: nowrap; overflow-y: auto; border-top: 0; border-left: 1px solid var(--border); }
+  .keypad button { height: 34px; }
+  .keypad .dpad { grid-template-rows: repeat(2, 34px); }
+}
 
 </style>
 </head>
@@ -448,9 +491,10 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
     <button data-view="debug">Debug</button>
     <button data-view="files">Files</button>
   </nav>
+  <div class="drawer-scrim" id="drawerScrim"></div>
   <main class="workspace" id="workspace">
     <aside class="explorer pane" id="explorer" aria-label="Files">
-      <div class="pane-head"><span>Files</span><span class="pane-actions" id="explorerActions"></span></div>
+      <div class="pane-head"><span>Files</span><span class="pane-actions" id="explorerActions"></span><button class="icon-btn drawer-close" id="explorerClose" type="button" aria-label="Close files">✕</button></div>
       <div class="explorer-body" id="explorerTree"></div>
       <div class="pane-head small"><span>Procedures</span></div>
       <div class="proc-list" id="procList"></div>
@@ -471,6 +515,7 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
         </div>
         <div class="screen-hint" id="screenHint">Click the screen to type into your program</div>
       </div>
+      <div class="keypad" id="keypad" aria-label="On-screen keys"></div>
     </section>
   </main>
   <div class="splitter h" data-split="bottom" aria-hidden="true"></div>
@@ -6694,7 +6739,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         }
         case 'ECHO': line(arg); return;
         case 'CLS': vm.display.cls(0); return;
-        case 'VER': line('Compendium DOS emulation 1.0'); return;
+        case 'VER': line('Baysik DOS emulation 1.0'); return;
         case 'CD': case 'CHDIR': if (arg) vfs.chdir(arg); else line(vfs.cwd()); return;
         case 'MD': case 'MKDIR': vfs.mkdir(arg); return;
         case 'RD': case 'RMDIR': vfs.rmdir(arg); return;
@@ -9252,7 +9297,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
       if (typeof indexedDB === 'undefined') return;
       const d = this.drives.C;
       const db = await new Promise((res, rej) => {
-        const rq = indexedDB.open(dbName || 'compendium-vfs', 1);
+        const rq = indexedDB.open(dbName || 'baysik-vfs', 1);
         rq.onupgradeneeded = () => rq.result.createObjectStore('entries');
         rq.onsuccess = () => res(rq.result);
         rq.onerror = () => rej(rq.error);
@@ -9687,7 +9732,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
 <li><b>D:</b> appears if you mount a folder from your computer (File ▸ Mount). You choose read-only, ask-before-writing or allow-writes.</li>
 <li>Programs can only touch these drives — never anything else on your computer — and file sizes are limited.</li>
 <li>Import and download files with the explorer buttons; share a whole folder as a link with File ▸ Share.</li></ul>`,
-    'Limitations': `<p>Compendium aims to run GW-BASIC and QBasic programs unchanged. A few things cannot work in a browser:</p><ul>
+    'Limitations': `<p>Baysik aims to run GW-BASIC and QBasic programs unchanged. A few things cannot work in a browser:</p><ul>
 <li><code>CALL ABSOLUTE</code>, <code>USR</code> and machine code; <code>INT 21h</code>-style DOS calls.</li>
 <li>Serial ports (<code>COM1:</code>) and <code>IOCTL</code>.</li>
 <li>Memory is emulated: video memory, BIOS keyboard flags, timer ticks and arrays (VARSEG/VARPTR) behave like a PC; other addresses are plain RAM.</li>
@@ -11179,8 +11224,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
   };
 
   UI.storage = {
-    get(k, d) { try { const v = localStorage.getItem('compendium.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem('compendium.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
+    get(k, d) { try { const v = localStorage.getItem('baysik.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('baysik.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
   };
 })(RC);
 
@@ -11626,7 +11671,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
   Share.unpack = async function (str) {
     str = String(str).trim();
     const m = /(?:#share=|^)(CPD1\.[zr][A-Za-z0-9_-]+)/.exec(str);
-    if (!m) throw new Error('This does not look like a Compendium share code.');
+    if (!m) throw new Error('This does not look like a Baysik share code.');
     const body = m[1].slice(PREFIX.length);
     let raw = unb64url(body.slice(1));
     if (body[0] === 'z') {
@@ -12459,9 +12504,14 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       });
       this.log('Immediate window. Try:  ? 6 * 7   or   PRINT "Hi"   or   ? SQR(2)', 'note');
     }
-    log(text, cls) {
+    log(text, cls, pos) {
       if (!this.immLog) { this.panels.immediate.built = true; this.buildImmediate(); }
       const el = h('div.' + (cls || 'res'), text);
+      if (pos) {
+        el.classList.add('jump');
+        el.title = 'Double-click to go to ' + (pos.file || '').replace(/^.*\\/, '') + ' line ' + (pos.line + 1);
+        el.addEventListener('dblclick', () => this.app.gotoPos(pos));
+      }
       this.immLog.appendChild(el);
       while (this.immLog.childNodes.length > 500) this.immLog.firstChild.remove();
       this.immLog.scrollTop = this.immLog.scrollHeight;
@@ -12677,11 +12727,17 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       body.innerHTML = '';
       const list = this.problems || [];
       if (!list.length) { body.appendChild(h('div.empty', 'No problems.')); return; }
+      body.appendChild(h('div.bpanel-tools', h('span.muted', 'Double-click a problem to open the file at that line (tap twice on touch screens).')));
       for (const pr of list) {
-        body.appendChild(h('div.list-row.clickable', { onclick: () => pr.pos && this.app.gotoPos(pr.pos) },
+        const row = h('div.list-row.clickable', { tabindex: '0', title: 'Double-click to go to the error' },
           h('span.err', pr.kind || 'Error'),
           h('span.grow', pr.message),
-          h('span.muted', pr.pos ? (pr.pos.file || '').replace(/^.*\\/, '') + ':' + (pr.pos.line + 1) : '')));
+          h('span.muted', pr.pos ? (pr.pos.file || '').replace(/^.*\\/, '') + ':' + (pr.pos.line + 1) + ':' + ((pr.pos.col || 0) + 1) : ''));
+        const go = () => pr.pos && this.app.gotoPos(pr.pos);
+        row.addEventListener('click', () => { body.querySelectorAll('.list-row').forEach((r) => r.classList.remove('sel')); row.classList.add('sel'); });
+        row.addEventListener('dblclick', go);
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+        body.appendChild(row);
       }
     }
   }
@@ -12750,7 +12806,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         this.softKeys = this.runner.vm && this.runner.vm.host.softKeys ? this.runner.vm.host.softKeys : ['LIST ', 'RUN\r', 'LOAD"', 'SAVE"', 'CONT\r', ',"LPT1:"\r', 'TRON\r', 'TROFF\r', 'KEY ', 'SCREEN 0,0,0\r'];
         d.setKeyLine(true, this.softKeys);
         this.cont = [];
-        this.print('Compendium GW-BASIC compatible console');
+        this.print('Baysik GW-BASIC compatible console');
         this.print('Type a numbered line to add it to the program; LIST, RUN, NEW, LOAD "x", SAVE "x",');
         this.print('FILES, AUTO, RENUM, EDIT n, CONT and SYSTEM (to leave) work as in GW-BASIC.');
         this.print(String(60300 - this.text().length) + ' Bytes free');
@@ -13583,7 +13639,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     welcome: {
       title: 'Welcome to the IDE',
       steps: [
-        { title: 'Welcome to Compendium!', text: 'This is a complete BASIC programming studio in your browser, compatible with GW-BASIC and QBasic — the languages millions of people learned to program with. Let\'s take a quick look around.' },
+        { title: 'Welcome to Baysik!', text: 'This is a complete BASIC programming studio in your browser, compatible with GW-BASIC and QBasic — the languages millions of people learned to program with. Let\'s take a quick look around.' },
         { sel: '#menubar', title: 'Menus', text: 'Everything lives in these menus. Hold <kbd>Alt</kbd> and press the first letter (Alt+F for File, Alt+R for Run…) or click.' },
         { sel: '#tbRun', title: 'Run your program', text: 'Press this button or <kbd>F5</kbd> to run the program in the editor. The same button continues a paused program.' },
         { sel: '#tbInto', title: 'Step through code', text: 'Debug buttons let you run one statement at a time (<kbd>F8</kbd>), step over SUB calls (<kbd>F10</kbd>) and step out (<kbd>Shift+F8</kbd>).' },
@@ -13665,7 +13721,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     async offerWelcome(app) {
       const r = await RC.UI.modal({
         title: 'Welcome!',
-        body: h('div', h('p', 'Compendium is a BASIC programming studio — GW-BASIC and QBasic compatible, with graphics, sound, files and a real debugger.'), h('p', 'Would you like a quick tour?')),
+        body: h('div', h('p', 'Baysik is a BASIC programming studio — GW-BASIC and QBasic compatible, with graphics, sound, files and a real debugger.'), h('p', 'Would you like a quick tour?')),
         buttons: [{ label: 'No thanks', value: null }, { label: 'Start the tutorial', value: 'learn' }, { label: 'Show me around', value: 'welcome', primary: true }],
       });
       if (r === 'learn') RC.Lessons.browse(app);
@@ -13784,7 +13840,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
 })(RC);
 
 // ==== ide/app.js ====
-// The Compendium IDE application.
+// The Baysik IDE application.
 (function (RC) {
   'use strict';
   const { h, icon } = RC.UI;
@@ -13845,6 +13901,9 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.bindMobile();
       this.bindScreen();
       this.console = new RC.GwConsole(this);
+      this.el('drawerScrim').addEventListener('click', () => this.toggleDrawer(false));
+      this.el('explorerClose').addEventListener('click', () => this.toggleDrawer(false));
+      this.setupTouch();
       // restore session
       const sess = store.get('session', null);
       let opened = false;
@@ -13913,7 +13972,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       for (const b of this.el('mobileTabs').querySelectorAll('button')) b.classList.toggle('active', b.dataset.view === v);
       if (v === 'editor' && this.active) this.active.editor.render();
     }
-    isMobile() { return window.matchMedia('(max-width: 820px)').matches; }
+    isMobile() { return window.matchMedia('(max-width: 820px), (max-height: 480px)').matches; }
 
     // ---- menus -------------------------------------------------------------------------------------
     menuDefs() {
@@ -14027,14 +14086,14 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
           { label: 'Tour: Files & Sharing', action: () => RC.Tours.start(this, 'files') },
           { label: 'Tour: Classic GW-BASIC Console', action: () => RC.Tours.start(this, 'gw') },
           { sep: true },
-          { label: 'About Compendium', action: () => this.aboutDialog() },
+          { label: 'About Baysik', action: () => this.aboutDialog() },
         ] },
       ];
     }
     buildMenus() {
       const bar = this.el('menubar');
       bar.innerHTML = '';
-      bar.appendChild(h('span.brand', h('span.logo', 'B'), 'Compendium'));
+      bar.appendChild(h('span.brand', h('span.logo', 'B'), 'Baysik'));
       this.menuButtons = [];
       const defs = this.menuDefs();
       defs.forEach((m, i) => {
@@ -14085,12 +14144,13 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         learn: btn('tbLearn', 'book', 'Learn', 'BASIC tutorial: step-by-step lessons', () => RC.Lessons.browse(this)),
         help: btn('tbHelp', 'help', 'Help', 'Language reference (F1)', () => RC.Help.open(this)),
         tour: btn('tbTour', 'tour', 'Tours', 'Guided tours', () => RC.Tours.menu(this)),
+        files: btn('tbFiles', 'folder', 'Files', 'Show files', () => this.toggleDrawer(), 'tb-files'),
       };
       this.speedSel = h('select', { title: 'Execution speed', 'aria-label': 'Execution speed', id: 'tbSpeed' }, SPEEDS.map((sp) => h('option', { value: sp.v }, sp.label)));
       this.speedSel.value = String(this.settings.speed);
       this.speedSel.addEventListener('change', () => this.setSpeed(+this.speedSel.value));
       this.statePill = h('span.state-pill', { id: 'tbState' }, 'Ready');
-      tb.append(this.tb.run, this.tb.pause, this.tb.stop, this.tb.restart, h('span.tb-sep'),
+      tb.append(this.tb.files, this.tb.run, this.tb.pause, this.tb.stop, this.tb.restart, h('span.tb-sep'),
         this.tb.into, this.tb.over, this.tb.out, this.tb.bp, h('span.tb-sep'),
         h('span.tb-group', h('span.tb-label', 'Speed'), this.speedSel), h('span.grow'), this.statePill, h('span.tb-sep'),
         this.tb.learn, this.tb.examples, this.tb.tour, this.tb.help);
@@ -14162,6 +14222,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.tb.out.disabled = !paused;
       const labels = { idle: 'Ready', running: 'Running', waiting: 'Running', paused: 'Paused', ended: 'Ended', error: 'Error', chain: 'Loading', evaldone: 'Ready' };
       this.statePill.textContent = (this.runner.immediate ? 'Immediate ' : '') + (labels[st] || st);
+      this.el('app').classList.toggle('running', running || paused);
+      this.el('app').classList.toggle('console', !!(this.console && this.console.active));
       this.statePill.className = 'state-pill ' + (running ? 'running' : paused ? 'paused' : st === 'error' ? 'error' : '');
       this.projLabel.textContent = this.active ? this.active.path : '';
       this.updateStatus();
@@ -14230,6 +14292,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     }
     activate(d) {
       this.active = d;
+      this.toggleDrawer(false);
       if (d && this.isProtected(d.path)) this.setStatus('Example/tutorial file — edit and run freely; Save (Ctrl+S) keeps your changes as your own copy');
       else if (d && this.statusMsg && /^Example\/tutorial file/.test(this.statusMsg)) this.setStatus('');
       for (const x of this.docs) x.editor.show(x === d);
@@ -14908,7 +14971,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const loc = info.lineNo !== null && info.lineNo !== undefined ? ` in line ${info.lineNo}` : '';
       const msg = `${info.message}${loc}`;
       this.setStatus('Runtime error ' + info.code + ': ' + msg, true);
-      this.panels.log(`Runtime error ${info.code}: ${msg}` + (info.pos ? `  (${(info.pos.file || '').replace(/^.*\\/, '')}:${info.pos.line + 1})` : ''), 'err');
+      this.panels.log(`Runtime error ${info.code}: ${msg}` + (info.pos ? `  (${(info.pos.file || '').replace(/^.*\\/, '')}:${info.pos.line + 1})` : ''), 'err', info.pos);
       const hint = RC.Help.errorHint(info.code);
       if (hint) this.panels.log('Hint: ' + hint, 'note');
       if (info.pos && info.pos.file) {
@@ -14927,11 +14990,12 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const where = pos ? ` (${(pos.file || '').replace(/^.*\\/, '')}:${pos.line + 1})` : '';
       this.setStatus('Syntax: ' + e.message + where, true);
       this.panels.setProblems([{ kind: 'Syntax error', message: e.message, pos }]);
-      this.panels.log('Syntax error: ' + e.message + where, 'err');
+      this.panels.log('Syntax error: ' + e.message + where, 'err', pos);
       if (pos && pos.file) {
         const d = this.openFile(pos.file);
         if (d) { d.editor.setError(pos.line); d.editor.setCursor(pos.line, pos.col || 0); }
       }
+      if (!(this.console && this.console.active)) this.panels.show('problems');
       if (this.console && this.console.active) this.console.onCompileError(e);
       else RC.UI.toast(h('div', h('b', 'Syntax error: '), e.message + where), 'err', 6000);
       this.updateUI();
@@ -15142,8 +15206,17 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const idx = lines.findIndex((l) => l.trim().toUpperCase().startsWith(lab + ':') || new RegExp('^\\s*(SUB|FUNCTION)\\s+' + lab.replace(/[$%&!#]/g, '\\$&') + '\\b', 'i').test(l));
       if (idx >= 0) d.editor.setCursor(idx, 0); else RC.UI.toast('Not found: ' + t, 'err');
     }
+    toggleDrawer(open) {
+      const app = this.el('app');
+      app.classList.toggle('explorer-open', open === undefined ? !app.classList.contains('explorer-open') : open);
+    }
     gotoPos(pos) {
       if (!pos) return;
+      if (pos.file && !this.docByPath(pos.file)) {
+        let ok = false;
+        try { ok = this.vfs.exists(pos.file); } catch (e) { ok = false; }
+        if (!ok) { RC.UI.toast('That source is not a file on disk (' + pos.file + ')', 'err'); return; }
+      }
       const d = pos.file ? this.openFile(pos.file) : this.active;
       if (!d) return;
       d.editor.setCursor(pos.line, pos.col || 0);
@@ -15210,10 +15283,10 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       RC.UI.alert('Keyboard Shortcuts', '<table class="kbd-table">' + rows.map(([k, v]) => `<tr><td><kbd>${k}</kbd></td><td>${v}</td></tr>`).join('') + '</table><p class="muted">While a program is running and the screen has focus, keys go to your program (except Ctrl+Break).</p>');
     }
     aboutDialog() {
-      RC.UI.alert('About Compendium', `<p><b>Compendium BASIC IDE</b> — version 0.1.0</p>
+      RC.UI.alert('About Baysik', `<p><b>Baysik</b> — a BASIC IDE — — version 0.1.0</p>
         <p>A browser IDE for GW-BASIC and QBasic programs: every classic screen mode (text, CGA, EGA, VGA, Hercules), PC speaker sound and music, files on a virtual disk, and a full debugger.</p>
         <p>Runs entirely in your browser; nothing is uploaded. Fonts: IBM PC ROM bitmap fonts (8×8, 8×14, 8×16).</p>
-        <p class="muted">GW-BASIC and QBasic are trademarks of Microsoft. Compendium is an independent, compatible re-implementation and contains no Microsoft code.</p>`);
+        <p class="muted">GW-BASIC and QBasic are trademarks of Microsoft. Baysik is an independent, compatible re-implementation and contains no Microsoft code.</p>`);
     }
     welcomeScreen() {
       const d = this.runner.display;
@@ -15221,7 +15294,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       d.color(15, 1); d.cls(0);
       const center = (row, text, fg) => { d.color(fg, 1); d.locate(row, Math.max(1, Math.floor((80 - text.length) / 2) + 1)); d.printString(RC.toCP437(text)); };
       center(9, '╔══════════════════════════════════════════════╗', 11);
-      center(10, '║        C O M P E N D I U M   B A S I C        ║', 11);
+      center(10, '║            B   A   Y   S   I   K             ║', 11);
       center(11, '╚══════════════════════════════════════════════╝', 11);
       center(13, 'GW-BASIC + QBasic compatible  •  every screen mode  •  debugger', 7);
       center(16, 'Press F5 to run the program in the editor', 14);
@@ -15306,6 +15379,59 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       c.addEventListener('mousedown', () => setTimeout(() => c.focus(), 0));
       this.runner.display.on('mode', () => { this.updateStatus(); });
       new ResizeObserver(() => this.fitScreen()).observe(this.el('screenWrap'));
+    }
+    /** Touch devices: on-screen keypad + soft keyboard bridge for running programs. */
+    setupTouch() {
+      const app = this.el('app');
+      const coarse = window.matchMedia('(pointer: coarse)');
+      const apply = () => app.classList.toggle('touch', coarse.matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
+      apply();
+      if (coarse.addEventListener) coarse.addEventListener('change', apply);
+      const kb = this.runner.keyboard;
+      const target = () => (this.console && this.console.active && !this.runner.isActive() ? 'console' : 'program');
+      const sendKey = (key, scan, extended) => {
+        if (target() === 'console') { this.console.handleKey(extended ? '\0' + String.fromCharCode(scan) : key); return; }
+        kb.lastScan = scan; kb.down.add(scan);
+        if (this.runner.vm) { const n = { 72: 11, 75: 12, 77: 13, 80: 14 }[scan]; if (n && this.runner.trapKey(n, 0, scan)) { this.runner.kick(); return; } }
+        kb.push(extended ? '\0' + String.fromCharCode(scan) : key);
+        this.runner.kick();
+      };
+      const release = (scan) => { kb.lastScan = scan | 0x80; kb.down.delete(scan); };
+      const pad = this.el('keypad');
+      const mk = (label, cls, key, scan, ext, aria) => {
+        const b = h('button' + (cls ? '.' + cls : ''), { type: 'button', 'aria-label': aria || label }, label);
+        let rep = null;
+        b.addEventListener('pointerdown', (e) => {
+          e.preventDefault(); b.classList.add('down');
+          sendKey(key, scan, ext);
+          if (ext) rep = setTimeout(function again() { sendKey(key, scan, ext); rep = setTimeout(again, 70); }, 380);
+        });
+        const up = () => { b.classList.remove('down'); clearTimeout(rep); release(scan); };
+        b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
+        return b;
+      };
+      const dpad = h('div.dpad', mk('▲', 'up', '', 72, true, 'Up'), mk('◀', 'left', '', 75, true, 'Left'), mk('▼', 'down', '', 80, true, 'Down'), mk('▶', 'right', '', 77, true, 'Right'));
+      const softkb = h('input.softkb', { type: 'text', autocapitalize: 'off', autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Keyboard for the program' });
+      this.el('screenFrame').appendChild(softkb);
+      const kbBtn = h('button', { type: 'button', 'aria-label': 'Show keyboard' }, 'ABC');
+      kbBtn.addEventListener('click', () => { softkb.value = ''; softkb.focus(); });
+      const brk = h('button', { type: 'button', 'aria-label': 'Break (Ctrl+Break)' }, 'Break');
+      brk.addEventListener('click', () => { if (target() === 'console') this.console.breakKey(); else this.runner.breakKey(); });
+      pad.append(dpad, mk('Space', '', ' ', 57), mk('Enter', '', '\r', 28), mk('Esc', '', '\x1b', 1), kbBtn, brk);
+      softkb.addEventListener('input', () => {
+        const v = softkb.value;
+        softkb.value = '';
+        for (const ch of RC.toCP437(v)) sendKey(ch, 0, false);
+      });
+      softkb.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); sendKey('\r', 28); }
+        else if (e.key === 'Backspace') { e.preventDefault(); sendKey('\b', 14); }
+        e.stopPropagation();
+      });
+      // tapping the screen while a program runs opens the soft keyboard on touch devices
+      this.el('screen').addEventListener('pointerup', (e) => {
+        if (e.pointerType === 'touch' && (this.runner.state === 'waiting' || this.runner.state === 'running' || (this.console && this.console.active))) { softkb.value = ''; softkb.focus(); }
+      });
     }
     fitScreen() {
       const wrap = this.el('screenWrap');

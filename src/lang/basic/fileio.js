@@ -470,7 +470,7 @@
         }
         case 'ECHO': line(arg); return;
         case 'CLS': vm.display.cls(0); return;
-        case 'VER': line('Compendium DOS emulation 1.0'); return;
+        case 'VER': line('Baysik DOS emulation 1.0'); return;
         case 'CD': case 'CHDIR': if (arg) vfs.chdir(arg); else line(vfs.cwd()); return;
         case 'MD': case 'MKDIR': vfs.mkdir(arg); return;
         case 'RD': case 'RMDIR': vfs.rmdir(arg); return;

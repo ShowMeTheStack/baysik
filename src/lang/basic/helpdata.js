@@ -218,7 +218,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
 <li><b>D:</b> appears if you mount a folder from your computer (File ▸ Mount). You choose read-only, ask-before-writing or allow-writes.</li>
 <li>Programs can only touch these drives — never anything else on your computer — and file sizes are limited.</li>
 <li>Import and download files with the explorer buttons; share a whole folder as a link with File ▸ Share.</li></ul>`,
-    'Limitations': `<p>Compendium aims to run GW-BASIC and QBasic programs unchanged. A few things cannot work in a browser:</p><ul>
+    'Limitations': `<p>Baysik aims to run GW-BASIC and QBasic programs unchanged. A few things cannot work in a browser:</p><ul>
 <li><code>CALL ABSOLUTE</code>, <code>USR</code> and machine code; <code>INT 21h</code>-style DOS calls.</li>
 <li>Serial ports (<code>COM1:</code>) and <code>IOCTL</code>.</li>
 <li>Memory is emulated: video memory, BIOS keyboard flags, timer ticks and arrays (VARSEG/VARPTR) behave like a PC; other addresses are plain RAM.</li>

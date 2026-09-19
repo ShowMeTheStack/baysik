@@ -58,7 +58,7 @@
         this.softKeys = this.runner.vm && this.runner.vm.host.softKeys ? this.runner.vm.host.softKeys : ['LIST ', 'RUN\r', 'LOAD"', 'SAVE"', 'CONT\r', ',"LPT1:"\r', 'TRON\r', 'TROFF\r', 'KEY ', 'SCREEN 0,0,0\r'];
         d.setKeyLine(true, this.softKeys);
         this.cont = [];
-        this.print('Compendium GW-BASIC compatible console');
+        this.print('Baysik GW-BASIC compatible console');
         this.print('Type a numbered line to add it to the program; LIST, RUN, NEW, LOAD "x", SAVE "x",');
         this.print('FILES, AUTO, RENUM, EDIT n, CONT and SYSTEM (to leave) work as in GW-BASIC.');
         this.print(String(60300 - this.text().length) + ' Bytes free');

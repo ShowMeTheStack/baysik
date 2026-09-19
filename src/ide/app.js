@@ -1,4 +1,4 @@
-// The Compendium IDE application.
+// The Baysik IDE application.
 (function (RC) {
   'use strict';
   const { h, icon } = RC.UI;
@@ -59,6 +59,9 @@
       this.bindMobile();
       this.bindScreen();
       this.console = new RC.GwConsole(this);
+      this.el('drawerScrim').addEventListener('click', () => this.toggleDrawer(false));
+      this.el('explorerClose').addEventListener('click', () => this.toggleDrawer(false));
+      this.setupTouch();
       // restore session
       const sess = store.get('session', null);
       let opened = false;
@@ -127,7 +130,7 @@
       for (const b of this.el('mobileTabs').querySelectorAll('button')) b.classList.toggle('active', b.dataset.view === v);
       if (v === 'editor' && this.active) this.active.editor.render();
     }
-    isMobile() { return window.matchMedia('(max-width: 820px)').matches; }
+    isMobile() { return window.matchMedia('(max-width: 820px), (max-height: 480px)').matches; }
 
     // ---- menus -------------------------------------------------------------------------------------
     menuDefs() {
@@ -241,14 +244,14 @@
           { label: 'Tour: Files & Sharing', action: () => RC.Tours.start(this, 'files') },
           { label: 'Tour: Classic GW-BASIC Console', action: () => RC.Tours.start(this, 'gw') },
           { sep: true },
-          { label: 'About Compendium', action: () => this.aboutDialog() },
+          { label: 'About Baysik', action: () => this.aboutDialog() },
         ] },
       ];
     }
     buildMenus() {
       const bar = this.el('menubar');
       bar.innerHTML = '';
-      bar.appendChild(h('span.brand', h('span.logo', 'B'), 'Compendium'));
+      bar.appendChild(h('span.brand', h('span.logo', 'B'), 'Baysik'));
       this.menuButtons = [];
       const defs = this.menuDefs();
       defs.forEach((m, i) => {
@@ -299,12 +302,13 @@
         learn: btn('tbLearn', 'book', 'Learn', 'BASIC tutorial: step-by-step lessons', () => RC.Lessons.browse(this)),
         help: btn('tbHelp', 'help', 'Help', 'Language reference (F1)', () => RC.Help.open(this)),
         tour: btn('tbTour', 'tour', 'Tours', 'Guided tours', () => RC.Tours.menu(this)),
+        files: btn('tbFiles', 'folder', 'Files', 'Show files', () => this.toggleDrawer(), 'tb-files'),
       };
       this.speedSel = h('select', { title: 'Execution speed', 'aria-label': 'Execution speed', id: 'tbSpeed' }, SPEEDS.map((sp) => h('option', { value: sp.v }, sp.label)));
       this.speedSel.value = String(this.settings.speed);
       this.speedSel.addEventListener('change', () => this.setSpeed(+this.speedSel.value));
       this.statePill = h('span.state-pill', { id: 'tbState' }, 'Ready');
-      tb.append(this.tb.run, this.tb.pause, this.tb.stop, this.tb.restart, h('span.tb-sep'),
+      tb.append(this.tb.files, this.tb.run, this.tb.pause, this.tb.stop, this.tb.restart, h('span.tb-sep'),
         this.tb.into, this.tb.over, this.tb.out, this.tb.bp, h('span.tb-sep'),
         h('span.tb-group', h('span.tb-label', 'Speed'), this.speedSel), h('span.grow'), this.statePill, h('span.tb-sep'),
         this.tb.learn, this.tb.examples, this.tb.tour, this.tb.help);
@@ -376,6 +380,8 @@
       this.tb.out.disabled = !paused;
       const labels = { idle: 'Ready', running: 'Running', waiting: 'Running', paused: 'Paused', ended: 'Ended', error: 'Error', chain: 'Loading', evaldone: 'Ready' };
       this.statePill.textContent = (this.runner.immediate ? 'Immediate ' : '') + (labels[st] || st);
+      this.el('app').classList.toggle('running', running || paused);
+      this.el('app').classList.toggle('console', !!(this.console && this.console.active));
       this.statePill.className = 'state-pill ' + (running ? 'running' : paused ? 'paused' : st === 'error' ? 'error' : '');
       this.projLabel.textContent = this.active ? this.active.path : '';
       this.updateStatus();
@@ -444,6 +450,7 @@
     }
     activate(d) {
       this.active = d;
+      this.toggleDrawer(false);
       if (d && this.isProtected(d.path)) this.setStatus('Example/tutorial file — edit and run freely; Save (Ctrl+S) keeps your changes as your own copy');
       else if (d && this.statusMsg && /^Example\/tutorial file/.test(this.statusMsg)) this.setStatus('');
       for (const x of this.docs) x.editor.show(x === d);
@@ -1122,7 +1129,7 @@
       const loc = info.lineNo !== null && info.lineNo !== undefined ? ` in line ${info.lineNo}` : '';
       const msg = `${info.message}${loc}`;
       this.setStatus('Runtime error ' + info.code + ': ' + msg, true);
-      this.panels.log(`Runtime error ${info.code}: ${msg}` + (info.pos ? `  (${(info.pos.file || '').replace(/^.*\\/, '')}:${info.pos.line + 1})` : ''), 'err');
+      this.panels.log(`Runtime error ${info.code}: ${msg}` + (info.pos ? `  (${(info.pos.file || '').replace(/^.*\\/, '')}:${info.pos.line + 1})` : ''), 'err', info.pos);
       const hint = RC.Help.errorHint(info.code);
       if (hint) this.panels.log('Hint: ' + hint, 'note');
       if (info.pos && info.pos.file) {
@@ -1141,11 +1148,12 @@
       const where = pos ? ` (${(pos.file || '').replace(/^.*\\/, '')}:${pos.line + 1})` : '';
       this.setStatus('Syntax: ' + e.message + where, true);
       this.panels.setProblems([{ kind: 'Syntax error', message: e.message, pos }]);
-      this.panels.log('Syntax error: ' + e.message + where, 'err');
+      this.panels.log('Syntax error: ' + e.message + where, 'err', pos);
       if (pos && pos.file) {
         const d = this.openFile(pos.file);
         if (d) { d.editor.setError(pos.line); d.editor.setCursor(pos.line, pos.col || 0); }
       }
+      if (!(this.console && this.console.active)) this.panels.show('problems');
       if (this.console && this.console.active) this.console.onCompileError(e);
       else RC.UI.toast(h('div', h('b', 'Syntax error: '), e.message + where), 'err', 6000);
       this.updateUI();
@@ -1356,8 +1364,17 @@
       const idx = lines.findIndex((l) => l.trim().toUpperCase().startsWith(lab + ':') || new RegExp('^\\s*(SUB|FUNCTION)\\s+' + lab.replace(/[$%&!#]/g, '\\$&') + '\\b', 'i').test(l));
       if (idx >= 0) d.editor.setCursor(idx, 0); else RC.UI.toast('Not found: ' + t, 'err');
     }
+    toggleDrawer(open) {
+      const app = this.el('app');
+      app.classList.toggle('explorer-open', open === undefined ? !app.classList.contains('explorer-open') : open);
+    }
     gotoPos(pos) {
       if (!pos) return;
+      if (pos.file && !this.docByPath(pos.file)) {
+        let ok = false;
+        try { ok = this.vfs.exists(pos.file); } catch (e) { ok = false; }
+        if (!ok) { RC.UI.toast('That source is not a file on disk (' + pos.file + ')', 'err'); return; }
+      }
       const d = pos.file ? this.openFile(pos.file) : this.active;
       if (!d) return;
       d.editor.setCursor(pos.line, pos.col || 0);
@@ -1424,10 +1441,10 @@
       RC.UI.alert('Keyboard Shortcuts', '<table class="kbd-table">' + rows.map(([k, v]) => `<tr><td><kbd>${k}</kbd></td><td>${v}</td></tr>`).join('') + '</table><p class="muted">While a program is running and the screen has focus, keys go to your program (except Ctrl+Break).</p>');
     }
     aboutDialog() {
-      RC.UI.alert('About Compendium', `<p><b>Compendium BASIC IDE</b> — version @@VERSION@@</p>
+      RC.UI.alert('About Baysik', `<p><b>Baysik</b> — a BASIC IDE — — version @@VERSION@@</p>
         <p>A browser IDE for GW-BASIC and QBasic programs: every classic screen mode (text, CGA, EGA, VGA, Hercules), PC speaker sound and music, files on a virtual disk, and a full debugger.</p>
         <p>Runs entirely in your browser; nothing is uploaded. Fonts: IBM PC ROM bitmap fonts (8×8, 8×14, 8×16).</p>
-        <p class="muted">GW-BASIC and QBasic are trademarks of Microsoft. Compendium is an independent, compatible re-implementation and contains no Microsoft code.</p>`);
+        <p class="muted">GW-BASIC and QBasic are trademarks of Microsoft. Baysik is an independent, compatible re-implementation and contains no Microsoft code.</p>`);
     }
     welcomeScreen() {
       const d = this.runner.display;
@@ -1435,7 +1452,7 @@
       d.color(15, 1); d.cls(0);
       const center = (row, text, fg) => { d.color(fg, 1); d.locate(row, Math.max(1, Math.floor((80 - text.length) / 2) + 1)); d.printString(RC.toCP437(text)); };
       center(9, '╔══════════════════════════════════════════════╗', 11);
-      center(10, '║        C O M P E N D I U M   B A S I C        ║', 11);
+      center(10, '║            B   A   Y   S   I   K             ║', 11);
       center(11, '╚══════════════════════════════════════════════╝', 11);
       center(13, 'GW-BASIC + QBasic compatible  •  every screen mode  •  debugger', 7);
       center(16, 'Press F5 to run the program in the editor', 14);
@@ -1520,6 +1537,59 @@
       c.addEventListener('mousedown', () => setTimeout(() => c.focus(), 0));
       this.runner.display.on('mode', () => { this.updateStatus(); });
       new ResizeObserver(() => this.fitScreen()).observe(this.el('screenWrap'));
+    }
+    /** Touch devices: on-screen keypad + soft keyboard bridge for running programs. */
+    setupTouch() {
+      const app = this.el('app');
+      const coarse = window.matchMedia('(pointer: coarse)');
+      const apply = () => app.classList.toggle('touch', coarse.matches || ('ontouchstart' in window && navigator.maxTouchPoints > 0));
+      apply();
+      if (coarse.addEventListener) coarse.addEventListener('change', apply);
+      const kb = this.runner.keyboard;
+      const target = () => (this.console && this.console.active && !this.runner.isActive() ? 'console' : 'program');
+      const sendKey = (key, scan, extended) => {
+        if (target() === 'console') { this.console.handleKey(extended ? '\0' + String.fromCharCode(scan) : key); return; }
+        kb.lastScan = scan; kb.down.add(scan);
+        if (this.runner.vm) { const n = { 72: 11, 75: 12, 77: 13, 80: 14 }[scan]; if (n && this.runner.trapKey(n, 0, scan)) { this.runner.kick(); return; } }
+        kb.push(extended ? '\0' + String.fromCharCode(scan) : key);
+        this.runner.kick();
+      };
+      const release = (scan) => { kb.lastScan = scan | 0x80; kb.down.delete(scan); };
+      const pad = this.el('keypad');
+      const mk = (label, cls, key, scan, ext, aria) => {
+        const b = h('button' + (cls ? '.' + cls : ''), { type: 'button', 'aria-label': aria || label }, label);
+        let rep = null;
+        b.addEventListener('pointerdown', (e) => {
+          e.preventDefault(); b.classList.add('down');
+          sendKey(key, scan, ext);
+          if (ext) rep = setTimeout(function again() { sendKey(key, scan, ext); rep = setTimeout(again, 70); }, 380);
+        });
+        const up = () => { b.classList.remove('down'); clearTimeout(rep); release(scan); };
+        b.addEventListener('pointerup', up); b.addEventListener('pointerleave', up); b.addEventListener('pointercancel', up);
+        return b;
+      };
+      const dpad = h('div.dpad', mk('▲', 'up', '', 72, true, 'Up'), mk('◀', 'left', '', 75, true, 'Left'), mk('▼', 'down', '', 80, true, 'Down'), mk('▶', 'right', '', 77, true, 'Right'));
+      const softkb = h('input.softkb', { type: 'text', autocapitalize: 'off', autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', 'aria-label': 'Keyboard for the program' });
+      this.el('screenFrame').appendChild(softkb);
+      const kbBtn = h('button', { type: 'button', 'aria-label': 'Show keyboard' }, 'ABC');
+      kbBtn.addEventListener('click', () => { softkb.value = ''; softkb.focus(); });
+      const brk = h('button', { type: 'button', 'aria-label': 'Break (Ctrl+Break)' }, 'Break');
+      brk.addEventListener('click', () => { if (target() === 'console') this.console.breakKey(); else this.runner.breakKey(); });
+      pad.append(dpad, mk('Space', '', ' ', 57), mk('Enter', '', '\r', 28), mk('Esc', '', '\x1b', 1), kbBtn, brk);
+      softkb.addEventListener('input', () => {
+        const v = softkb.value;
+        softkb.value = '';
+        for (const ch of RC.toCP437(v)) sendKey(ch, 0, false);
+      });
+      softkb.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); sendKey('\r', 28); }
+        else if (e.key === 'Backspace') { e.preventDefault(); sendKey('\b', 14); }
+        e.stopPropagation();
+      });
+      // tapping the screen while a program runs opens the soft keyboard on touch devices
+      this.el('screen').addEventListener('pointerup', (e) => {
+        if (e.pointerType === 'touch' && (this.runner.state === 'waiting' || this.runner.state === 'running' || (this.console && this.console.active))) { softkb.value = ''; softkb.focus(); }
+      });
     }
     fitScreen() {
       const wrap = this.el('screenWrap');

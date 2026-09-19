@@ -282,7 +282,7 @@
   };
 
   UI.storage = {
-    get(k, d) { try { const v = localStorage.getItem('compendium.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-    set(k, v) { try { localStorage.setItem('compendium.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
+    get(k, d) { try { const v = localStorage.getItem('baysik.' + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('baysik.' + k, JSON.stringify(v)); } catch (e) { /* ignore */ } },
   };
 })(RC);

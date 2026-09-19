@@ -269,7 +269,7 @@
       if (typeof indexedDB === 'undefined') return;
       const d = this.drives.C;
       const db = await new Promise((res, rej) => {
-        const rq = indexedDB.open(dbName || 'compendium-vfs', 1);
+        const rq = indexedDB.open(dbName || 'baysik-vfs', 1);
         rq.onupgradeneeded = () => rq.result.createObjectStore('entries');
         rq.onsuccess = () => res(rq.result);
         rq.onerror = () => rej(rq.error);

@@ -99,9 +99,14 @@
       });
       this.log('Immediate window. Try:  ? 6 * 7   or   PRINT "Hi"   or   ? SQR(2)', 'note');
     }
-    log(text, cls) {
+    log(text, cls, pos) {
       if (!this.immLog) { this.panels.immediate.built = true; this.buildImmediate(); }
       const el = h('div.' + (cls || 'res'), text);
+      if (pos) {
+        el.classList.add('jump');
+        el.title = 'Double-click to go to ' + (pos.file || '').replace(/^.*\\/, '') + ' line ' + (pos.line + 1);
+        el.addEventListener('dblclick', () => this.app.gotoPos(pos));
+      }
       this.immLog.appendChild(el);
       while (this.immLog.childNodes.length > 500) this.immLog.firstChild.remove();
       this.immLog.scrollTop = this.immLog.scrollHeight;
@@ -317,11 +322,17 @@
       body.innerHTML = '';
       const list = this.problems || [];
       if (!list.length) { body.appendChild(h('div.empty', 'No problems.')); return; }
+      body.appendChild(h('div.bpanel-tools', h('span.muted', 'Double-click a problem to open the file at that line (tap twice on touch screens).')));
       for (const pr of list) {
-        body.appendChild(h('div.list-row.clickable', { onclick: () => pr.pos && this.app.gotoPos(pr.pos) },
+        const row = h('div.list-row.clickable', { tabindex: '0', title: 'Double-click to go to the error' },
           h('span.err', pr.kind || 'Error'),
           h('span.grow', pr.message),
-          h('span.muted', pr.pos ? (pr.pos.file || '').replace(/^.*\\/, '') + ':' + (pr.pos.line + 1) : '')));
+          h('span.muted', pr.pos ? (pr.pos.file || '').replace(/^.*\\/, '') + ':' + (pr.pos.line + 1) + ':' + ((pr.pos.col || 0) + 1) : ''));
+        const go = () => pr.pos && this.app.gotoPos(pr.pos);
+        row.addEventListener('click', () => { body.querySelectorAll('.list-row').forEach((r) => r.classList.remove('sel')); row.classList.add('sel'); });
+        row.addEventListener('dblclick', go);
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+        body.appendChild(row);
       }
     }
   }

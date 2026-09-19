@@ -163,6 +163,9 @@ a { color: var(--accent); }
 .workspace { display: grid; grid-template-columns: var(--explorer-w, 210px) 4px minmax(240px, 1fr) 4px var(--screen-w, 46%); min-height: 0; }
 .workspace.no-explorer { grid-template-columns: 0 0 minmax(240px, 1fr) 4px var(--screen-w, 46%); }
 .workspace.no-explorer .explorer { display: none; }
+.workspace > .explorer { grid-column: 1; grid-row: 1; } .workspace > .splitter[data-split="explorer"] { grid-column: 2; grid-row: 1; }
+.workspace > .editor-area { grid-column: 3; grid-row: 1; } .workspace > .splitter[data-split="screen"] { grid-column: 4; grid-row: 1; }
+.workspace > .screen-area { grid-column: 5; grid-row: 1; }
 .pane { background: var(--pane); min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .pane-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 3px 8px; background: var(--pane-head); color: var(--pane-head-fg); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; min-height: 26px; }
 .pane-head.small { font-size: 11px; }
@@ -388,13 +391,13 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 
 /* ===== Mobile ============================================================ */
 .mobile-tabs { display: none; }
-@media (max-width: 820px) {
+@media (max-width: 820px), (max-height: 480px) {
   .app { grid-template-rows: auto auto auto minmax(0, 1fr) 0 0 auto; }
   .mobile-tabs { display: flex; background: var(--pane2); border-bottom: 1px solid var(--border); }
   .mobile-tabs button { flex: 1; border: 0; background: none; padding: 8px 0; color: var(--muted); border-bottom: 2px solid transparent; }
   .mobile-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
   .workspace { grid-template-columns: 1fr !important; }
-  .workspace > * { display: none !important; }
+  .workspace > * { display: none !important; grid-column: 1 !important; }
   .splitter { display: none !important; }
   .app[data-mview="editor"] .editor-area, .app[data-mview="screen"] .screen-area, .app[data-mview="files"] .explorer { display: flex !important; }
   .app[data-mview="debug"] .workspace { display: none; }
@@ -426,3 +429,43 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 .vrow .vv.editable:hover { background: rgba(127,127,127,.18); }
 .vrow.pager { display: block; padding: 2px 0; }
 .tab .lock { opacity: .7; font-size: 11px; }
+.imm-log .jump { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.list-row.sel { background: var(--menu-sel); color: var(--menu-sel-fg); }
+.list-row.sel .muted, .list-row.sel .err { color: inherit; }
+
+/* ===== Tablet / small laptop: explorer becomes a drawer ================= */
+.tb-files, .drawer-close, .drawer-scrim { display: none; }
+@media (min-width: 821px) and (max-width: 1199px) and (min-height: 481px) {
+  .workspace, .workspace.no-explorer { grid-template-columns: 0 0 minmax(260px, 1fr) 4px var(--screen-w, 46%); }
+  .workspace .explorer { display: flex; position: fixed; left: 0; top: 0; bottom: 0; width: min(320px, 80vw); z-index: 700;
+    transform: translateX(-102%); transition: transform .2s ease; box-shadow: var(--shadow); }
+  .app.explorer-open .workspace .explorer { transform: none; }
+  .app.explorer-open .drawer-scrim { display: block; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 650; }
+  .splitter[data-split="explorer"] { display: none; }
+  .tb-files, .drawer-close { display: inline-flex; }
+  .toolbar .tb-btn .lbl { display: none; }
+  .toolbar .tb-btn.primary .lbl { display: inline; }
+}
+@media (min-width: 821px) and (max-height: 620px) and (min-height: 481px) {
+  .app { grid-template-rows: auto auto auto minmax(0, 1fr) auto min(var(--bottom-h, 230px), 32vh) auto; }
+  .menubar { min-height: 22px; }
+  .toolbar { padding: 2px 6px; }
+  .tb-btn { height: 24px; }
+}
+/* ===== Touch keypad under the output screen ============================== */
+.keypad { display: none; gap: 6px; padding: 6px; background: var(--pane2); border-top: 1px solid var(--border); flex-wrap: wrap; justify-content: center; align-items: center; }
+.app.touch.running .keypad, .app.touch.console .keypad { display: flex; }
+.keypad button { min-width: 44px; height: 40px; border: 1px solid var(--border); background: var(--btn); color: var(--btn-fg); border-radius: 6px; font: 600 14px var(--font-ui); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.keypad button:active, .keypad button.down { background: var(--accent); color: var(--accent-fg); }
+.keypad .dpad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 40px); gap: 4px; }
+.keypad .dpad .up { grid-column: 2; grid-row: 1; } .keypad .dpad .left { grid-column: 1; grid-row: 2; }
+.keypad .dpad .down { grid-column: 2; grid-row: 2; } .keypad .dpad .right { grid-column: 3; grid-row: 2; }
+.softkb { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; font-size: 16px; }
+@media (max-height: 480px) and (orientation: landscape) {
+  .app.touch.running .screen-area, .app.touch.console .screen-area { display: grid !important; grid-template: "head head" auto "wrap pad" minmax(0, 1fr) / minmax(0, 1fr) auto; }
+  .screen-area > .pane-head { grid-area: head; }
+  .screen-area > .screen-wrap { grid-area: wrap; }
+  .screen-area > .keypad { grid-area: pad; flex-direction: column; flex-wrap: nowrap; overflow-y: auto; border-top: 0; border-left: 1px solid var(--border); }
+  .keypad button { height: 34px; }
+  .keypad .dpad { grid-template-rows: repeat(2, 34px); }
+}

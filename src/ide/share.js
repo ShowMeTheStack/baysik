@@ -33,7 +33,7 @@
   Share.unpack = async function (str) {
     str = String(str).trim();
     const m = /(?:#share=|^)(CPD1\.[zr][A-Za-z0-9_-]+)/.exec(str);
-    if (!m) throw new Error('This does not look like a Compendium share code.');
+    if (!m) throw new Error('This does not look like a Baysik share code.');
     const body = m[1].slice(PREFIX.length);
     let raw = unb64url(body.slice(1));
     if (body[0] === 'z') {

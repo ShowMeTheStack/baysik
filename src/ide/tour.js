@@ -21,7 +21,7 @@
     welcome: {
       title: 'Welcome to the IDE',
       steps: [
-        { title: 'Welcome to Compendium!', text: 'This is a complete BASIC programming studio in your browser, compatible with GW-BASIC and QBasic — the languages millions of people learned to program with. Let\'s take a quick look around.' },
+        { title: 'Welcome to Baysik!', text: 'This is a complete BASIC programming studio in your browser, compatible with GW-BASIC and QBasic — the languages millions of people learned to program with. Let\'s take a quick look around.' },
         { sel: '#menubar', title: 'Menus', text: 'Everything lives in these menus. Hold <kbd>Alt</kbd> and press the first letter (Alt+F for File, Alt+R for Run…) or click.' },
         { sel: '#tbRun', title: 'Run your program', text: 'Press this button or <kbd>F5</kbd> to run the program in the editor. The same button continues a paused program.' },
         { sel: '#tbInto', title: 'Step through code', text: 'Debug buttons let you run one statement at a time (<kbd>F8</kbd>), step over SUB calls (<kbd>F10</kbd>) and step out (<kbd>Shift+F8</kbd>).' },
@@ -103,7 +103,7 @@
     async offerWelcome(app) {
       const r = await RC.UI.modal({
         title: 'Welcome!',
-        body: h('div', h('p', 'Compendium is a BASIC programming studio — GW-BASIC and QBasic compatible, with graphics, sound, files and a real debugger.'), h('p', 'Would you like a quick tour?')),
+        body: h('div', h('p', 'Baysik is a BASIC programming studio — GW-BASIC and QBasic compatible, with graphics, sound, files and a real debugger.'), h('p', 'Would you like a quick tour?')),
         buttons: [{ label: 'No thanks', value: null }, { label: 'Start the tutorial', value: 'learn' }, { label: 'Show me around', value: 'welcome', primary: true }],
       });
       if (r === 'learn') RC.Lessons.browse(app);
