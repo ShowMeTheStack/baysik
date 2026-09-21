@@ -7539,6 +7539,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         this.colorSwitch = colorSwitch;
         if (this.keyLineOn) { this.viewBottom = this.rows - 2; this.drawKeyLine(); }
         this.emit('mode', mode);
+        this.emit('border', this.borderRgb);
       }
       const np = this.m.pages;
       if (apage !== undefined) { if (apage < 0 || apage >= np) err(5); this.apage = apage; }
@@ -7700,7 +7701,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
       if (mode === 0) {
         if (a !== undefined) { if (a < 0 || a > 31) err(5); this.fg = a; }
         if (b !== undefined) { if (b < 0 || b > 15) err(5); this.bg = b; }
-        if (c !== undefined) { if (c < 0 || c > 15) err(5); this.border = c; }
+        if (c !== undefined) { if (c < 0 || c > 15) err(5); this.border = c; this.emit('border', this.borderRgb); }
         return;
       }
       if (mode === 1) {
@@ -15379,6 +15380,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       });
       c.addEventListener('mousedown', () => setTimeout(() => c.focus(), 0));
       this.runner.display.on('mode', () => { this.updateStatus(); });
+      // Text-mode border colour (COLOR ,,border) is drawn as a band around the screen, like CGA/EGA
+      this.runner.display.on('border', (rgb) => { frame.style.boxShadow = rgb && !/^#0+$/.test(rgb) ? `0 0 0 10px ${rgb}, 0 0 30px rgba(0,0,0,.6)` : ''; });
       new ResizeObserver(() => this.fitScreen()).observe(this.el('screenWrap'));
     }
     /** Touch devices: on-screen keypad + soft keyboard bridge for running programs. */

@@ -1537,6 +1537,8 @@
       });
       c.addEventListener('mousedown', () => setTimeout(() => c.focus(), 0));
       this.runner.display.on('mode', () => { this.updateStatus(); });
+      // Text-mode border colour (COLOR ,,border) is drawn as a band around the screen, like CGA/EGA
+      this.runner.display.on('border', (rgb) => { frame.style.boxShadow = rgb && !/^#0+$/.test(rgb) ? `0 0 0 10px ${rgb}, 0 0 30px rgba(0,0,0,.6)` : ''; });
       new ResizeObserver(() => this.fitScreen()).observe(this.el('screenWrap'));
     }
     /** Touch devices: on-screen keypad + soft keyboard bridge for running programs. */

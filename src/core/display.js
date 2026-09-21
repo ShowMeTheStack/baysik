@@ -111,6 +111,7 @@
         this.colorSwitch = colorSwitch;
         if (this.keyLineOn) { this.viewBottom = this.rows - 2; this.drawKeyLine(); }
         this.emit('mode', mode);
+        this.emit('border', this.borderRgb);
       }
       const np = this.m.pages;
       if (apage !== undefined) { if (apage < 0 || apage >= np) err(5); this.apage = apage; }
@@ -272,7 +273,7 @@
       if (mode === 0) {
         if (a !== undefined) { if (a < 0 || a > 31) err(5); this.fg = a; }
         if (b !== undefined) { if (b < 0 || b > 15) err(5); this.bg = b; }
-        if (c !== undefined) { if (c < 0 || c > 15) err(5); this.border = c; }
+        if (c !== undefined) { if (c < 0 || c > 15) err(5); this.border = c; this.emit('border', this.borderRgb); }
         return;
       }
       if (mode === 1) {
