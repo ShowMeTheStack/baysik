@@ -469,3 +469,11 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
   .keypad button { height: 34px; }
   .keypad .dpad { grid-template-rows: repeat(2, 34px); }
 }
+
+/* F4 full-size output must show the screen even in the phone Code/Debug views */
+.app.screen-max .workspace { display: block !important; }
+.app.screen-max .workspace > .screen-area { display: flex !important; }
+/* Drawer must work even when View > Explorer turned the column off */
+@media (min-width: 821px) and (max-width: 1199px) and (min-height: 481px) {
+  .workspace.no-explorer .explorer { display: flex; }
+}

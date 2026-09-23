@@ -85,7 +85,7 @@
   // ---- toasts ---------------------------------------------------------------------------------
   let toastBox = null;
   UI.toast = function (msg, kind, ms) {
-    if (!toastBox) { toastBox = h('div.toasts'); document.body.appendChild(toastBox); }
+    if (!toastBox) { toastBox = h('div.toasts', { role: 'status', 'aria-live': 'polite' }); document.body.appendChild(toastBox); }
     const t = h('div.toast' + (kind ? '.' + kind : ''), msg);
     toastBox.appendChild(t);
     setTimeout(() => t.remove(), ms || 3500);
@@ -128,6 +128,17 @@
       back.addEventListener('mousedown', (e) => { if (e.target === back && opts.dismissable !== false) close(opts.cancelValue); });
       const onKey = (e) => {
         if (openModals[openModals.length - 1] !== close) return;
+        if (e.key === 'Tab') {
+          // keep keyboard focus inside the dialog (aria-modal)
+          const f = [...box.querySelectorAll('button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
+          if (f.length) {
+            const i = f.indexOf(document.activeElement);
+            const n = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i < 0 || i === f.length - 1 ? 0 : i + 1);
+            e.preventDefault(); e.stopPropagation();
+            f[n].focus();
+            return;
+          }
+        }
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(opts.cancelValue); }
         else if (e.key === 'Enter' && opts.enterValue !== undefined && !(e.target instanceof HTMLTextAreaElement)) {
           e.preventDefault(); e.stopPropagation();
@@ -171,37 +182,43 @@
     UI.closeMenus();
     const pop = h('div.menu-pop', { role: 'menu' });
     let subOpen = null;
+    let sub = null; // keyboard state of the open submenu: {els, idx}
     const els = [];
+    const closeSub = () => { if (subOpen) { subOpen.remove(); subOpen = null; } sub = null; };
     for (const it of items) {
       if (!it) continue;
       if (it.sep) { pop.appendChild(h('div.menu-sep')); continue; }
-      const el = h('div.menu-item' + (it.disabled ? '.disabled' : '') + (it.checked ? '.checked' : ''), { role: 'menuitem', tabindex: '-1' },
+      const el = h('div.menu-item' + (it.disabled ? '.disabled' : '') + (it.checked ? '.checked' : ''), { role: 'menuitem', tabindex: '-1', 'aria-haspopup': it.items ? 'true' : null },
         h('span', it.label), it.items ? h('span.sub-arrow', '▸') : (it.sc ? h('span.sc', it.sc) : null));
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (it.items) { openSub(); return; }
-        UI.closeMenus();
-        if (it.action) setTimeout(() => it.action(), 0);
-      });
-      const openSub = () => {
-        if (subOpen) subOpen.remove();
+      const openSub = (keyboard) => {
+        closeSub();
         const r = el.getBoundingClientRect();
         const sp = h('div.menu-pop', { role: 'menu' });
-        for (const s of it.items) {
-          if (!s) continue;
-          if (s.sep) { sp.appendChild(h('div.menu-sep')); continue; }
-          const se = h('div.menu-item' + (s.disabled ? '.disabled' : '') + (s.checked ? '.checked' : ''), { role: 'menuitem' }, h('span', s.label), s.sc ? h('span.sc', s.sc) : null);
-          se.addEventListener('click', (e) => { e.stopPropagation(); UI.closeMenus(); if (s.action) setTimeout(() => s.action(), 0); });
+        const subEls = [];
+        for (const s2 of it.items) {
+          if (!s2) continue;
+          if (s2.sep) { sp.appendChild(h('div.menu-sep')); continue; }
+          const se = h('div.menu-item' + (s2.disabled ? '.disabled' : '') + (s2.checked ? '.checked' : ''), { role: 'menuitem' }, h('span', s2.label), s2.sc ? h('span.sc', s2.sc) : null);
+          se.addEventListener('click', (e) => { e.stopPropagation(); UI.closeMenus(); if (s2.action) setTimeout(() => s2.action(), 0); });
           sp.appendChild(se);
+          if (!s2.disabled) subEls.push(se);
         }
         document.body.appendChild(sp);
         const sw = sp.offsetWidth;
         sp.style.left = Math.min(r.right - 2, window.innerWidth - sw - 4) + 'px';
         sp.style.top = Math.min(r.top - 4, window.innerHeight - sp.offsetHeight - 4) + 'px';
         subOpen = sp;
+        sub = { els: subEls, idx: -1 };
+        if (keyboard) focusSub(0);
       };
-      el.addEventListener('mouseenter', () => { if (it.items) openSub(); else if (subOpen) { subOpen.remove(); subOpen = null; } });
-      els.push({ el, it });
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (it.items) { openSub(false); return; }
+        UI.closeMenus();
+        if (it.action) setTimeout(() => it.action(), 0);
+      });
+      el.addEventListener('mouseenter', () => { if (it.items) openSub(false); else closeSub(); });
+      els.push({ el, it, openSub });
       pop.appendChild(el);
     }
     document.body.appendChild(pop);
@@ -217,12 +234,31 @@
       live[idx].el.classList.add('active');
       live[idx].el.scrollIntoView({ block: 'nearest' });
     };
+    function focusSub(i) {
+      if (!sub || !sub.els.length) return;
+      sub.idx = (i + sub.els.length) % sub.els.length;
+      sub.els.forEach((e) => e.classList.remove('active'));
+      sub.els[sub.idx].classList.add('active');
+    }
     const onKey = (e) => {
       const live = els.filter((x) => !x.it.disabled);
+      if (sub && sub.idx >= 0) {
+        // keyboard is inside a submenu
+        if (e.key === 'ArrowDown') { e.preventDefault(); focusSub(sub.idx + 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); focusSub(sub.idx - 1); }
+        else if (e.key === 'Enter') { e.preventDefault(); sub.els[sub.idx].click(); }
+        else if (e.key === 'ArrowLeft' || e.key === 'Escape') { e.preventDefault(); closeSub(); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); if (opts && opts.onArrow) opts.onArrow(1); }
+        else return;
+        e.stopPropagation();
+        return;
+      }
+      const cur = idx >= 0 ? live[idx] : null;
       if (e.key === 'Escape') { e.preventDefault(); UI.closeMenus(); if (opts && opts.onEscape) opts.onEscape(); }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); focusIdx(idx + 1); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); focusIdx(idx - 1); }
-      else if (e.key === 'Enter' && idx >= 0) { e.preventDefault(); live[idx].el.click(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); closeSub(); focusIdx(idx < 0 ? 0 : idx + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); closeSub(); focusIdx(idx < 0 ? live.length - 1 : idx - 1); }
+      else if (e.key === 'Enter' && cur) { e.preventDefault(); if (cur.it.items) cur.openSub(true); else cur.el.click(); }
+      else if (e.key === 'ArrowRight' && cur && cur.it.items) { e.preventDefault(); cur.openSub(true); }
       else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && opts && opts.onArrow) { e.preventDefault(); opts.onArrow(e.key === 'ArrowRight' ? 1 : -1); }
       else return;
       e.stopPropagation();

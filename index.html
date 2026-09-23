@@ -479,23 +479,31 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
   .keypad .dpad { grid-template-rows: repeat(2, 34px); }
 }
 
+/* F4 full-size output must show the screen even in the phone Code/Debug views */
+.app.screen-max .workspace { display: block !important; }
+.app.screen-max .workspace > .screen-area { display: flex !important; }
+/* Drawer must work even when View > Explorer turned the column off */
+@media (min-width: 821px) and (max-width: 1199px) and (min-height: 481px) {
+  .workspace.no-explorer .explorer { display: flex; }
+}
+
 </style>
 </head>
 <body>
 <div id="app" class="app">
   <header class="menubar" id="menubar" role="menubar" aria-label="Main menu"></header>
   <div class="toolbar" id="toolbar" role="toolbar" aria-label="Run and debug"></div>
-  <nav class="mobile-tabs" id="mobileTabs" aria-label="Views">
-    <button data-view="editor" class="active">Code</button>
-    <button data-view="screen">Screen</button>
-    <button data-view="debug">Debug</button>
-    <button data-view="files">Files</button>
+  <nav class="mobile-tabs" id="mobileTabs" aria-label="Views" role="tablist">
+    <button data-view="editor" class="active" role="tab" aria-selected="true">Code</button>
+    <button data-view="screen" role="tab" aria-selected="false">Screen</button>
+    <button data-view="debug" role="tab" aria-selected="false">Debug</button>
+    <button data-view="files" role="tab" aria-selected="false">Files</button>
   </nav>
   <div class="drawer-scrim" id="drawerScrim"></div>
   <main class="workspace" id="workspace">
     <aside class="explorer pane" id="explorer" aria-label="Files">
       <div class="pane-head"><span>Files</span><span class="pane-actions" id="explorerActions"></span><button class="icon-btn drawer-close" id="explorerClose" type="button" aria-label="Close files">✕</button></div>
-      <div class="explorer-body" id="explorerTree"></div>
+      <div class="explorer-body" id="explorerTree" role="tree" aria-label="Files and folders"></div>
       <div class="pane-head small"><span>Procedures</span></div>
       <div class="proc-list" id="procList"></div>
     </aside>
@@ -11028,7 +11036,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
   // ---- toasts ---------------------------------------------------------------------------------
   let toastBox = null;
   UI.toast = function (msg, kind, ms) {
-    if (!toastBox) { toastBox = h('div.toasts'); document.body.appendChild(toastBox); }
+    if (!toastBox) { toastBox = h('div.toasts', { role: 'status', 'aria-live': 'polite' }); document.body.appendChild(toastBox); }
     const t = h('div.toast' + (kind ? '.' + kind : ''), msg);
     toastBox.appendChild(t);
     setTimeout(() => t.remove(), ms || 3500);
@@ -11071,6 +11079,17 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       back.addEventListener('mousedown', (e) => { if (e.target === back && opts.dismissable !== false) close(opts.cancelValue); });
       const onKey = (e) => {
         if (openModals[openModals.length - 1] !== close) return;
+        if (e.key === 'Tab') {
+          // keep keyboard focus inside the dialog (aria-modal)
+          const f = [...box.querySelectorAll('button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
+          if (f.length) {
+            const i = f.indexOf(document.activeElement);
+            const n = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i < 0 || i === f.length - 1 ? 0 : i + 1);
+            e.preventDefault(); e.stopPropagation();
+            f[n].focus();
+            return;
+          }
+        }
         if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(opts.cancelValue); }
         else if (e.key === 'Enter' && opts.enterValue !== undefined && !(e.target instanceof HTMLTextAreaElement)) {
           e.preventDefault(); e.stopPropagation();
@@ -11114,37 +11133,43 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     UI.closeMenus();
     const pop = h('div.menu-pop', { role: 'menu' });
     let subOpen = null;
+    let sub = null; // keyboard state of the open submenu: {els, idx}
     const els = [];
+    const closeSub = () => { if (subOpen) { subOpen.remove(); subOpen = null; } sub = null; };
     for (const it of items) {
       if (!it) continue;
       if (it.sep) { pop.appendChild(h('div.menu-sep')); continue; }
-      const el = h('div.menu-item' + (it.disabled ? '.disabled' : '') + (it.checked ? '.checked' : ''), { role: 'menuitem', tabindex: '-1' },
+      const el = h('div.menu-item' + (it.disabled ? '.disabled' : '') + (it.checked ? '.checked' : ''), { role: 'menuitem', tabindex: '-1', 'aria-haspopup': it.items ? 'true' : null },
         h('span', it.label), it.items ? h('span.sub-arrow', '▸') : (it.sc ? h('span.sc', it.sc) : null));
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (it.items) { openSub(); return; }
-        UI.closeMenus();
-        if (it.action) setTimeout(() => it.action(), 0);
-      });
-      const openSub = () => {
-        if (subOpen) subOpen.remove();
+      const openSub = (keyboard) => {
+        closeSub();
         const r = el.getBoundingClientRect();
         const sp = h('div.menu-pop', { role: 'menu' });
-        for (const s of it.items) {
-          if (!s) continue;
-          if (s.sep) { sp.appendChild(h('div.menu-sep')); continue; }
-          const se = h('div.menu-item' + (s.disabled ? '.disabled' : '') + (s.checked ? '.checked' : ''), { role: 'menuitem' }, h('span', s.label), s.sc ? h('span.sc', s.sc) : null);
-          se.addEventListener('click', (e) => { e.stopPropagation(); UI.closeMenus(); if (s.action) setTimeout(() => s.action(), 0); });
+        const subEls = [];
+        for (const s2 of it.items) {
+          if (!s2) continue;
+          if (s2.sep) { sp.appendChild(h('div.menu-sep')); continue; }
+          const se = h('div.menu-item' + (s2.disabled ? '.disabled' : '') + (s2.checked ? '.checked' : ''), { role: 'menuitem' }, h('span', s2.label), s2.sc ? h('span.sc', s2.sc) : null);
+          se.addEventListener('click', (e) => { e.stopPropagation(); UI.closeMenus(); if (s2.action) setTimeout(() => s2.action(), 0); });
           sp.appendChild(se);
+          if (!s2.disabled) subEls.push(se);
         }
         document.body.appendChild(sp);
         const sw = sp.offsetWidth;
         sp.style.left = Math.min(r.right - 2, window.innerWidth - sw - 4) + 'px';
         sp.style.top = Math.min(r.top - 4, window.innerHeight - sp.offsetHeight - 4) + 'px';
         subOpen = sp;
+        sub = { els: subEls, idx: -1 };
+        if (keyboard) focusSub(0);
       };
-      el.addEventListener('mouseenter', () => { if (it.items) openSub(); else if (subOpen) { subOpen.remove(); subOpen = null; } });
-      els.push({ el, it });
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (it.items) { openSub(false); return; }
+        UI.closeMenus();
+        if (it.action) setTimeout(() => it.action(), 0);
+      });
+      el.addEventListener('mouseenter', () => { if (it.items) openSub(false); else closeSub(); });
+      els.push({ el, it, openSub });
       pop.appendChild(el);
     }
     document.body.appendChild(pop);
@@ -11160,12 +11185,31 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       live[idx].el.classList.add('active');
       live[idx].el.scrollIntoView({ block: 'nearest' });
     };
+    function focusSub(i) {
+      if (!sub || !sub.els.length) return;
+      sub.idx = (i + sub.els.length) % sub.els.length;
+      sub.els.forEach((e) => e.classList.remove('active'));
+      sub.els[sub.idx].classList.add('active');
+    }
     const onKey = (e) => {
       const live = els.filter((x) => !x.it.disabled);
+      if (sub && sub.idx >= 0) {
+        // keyboard is inside a submenu
+        if (e.key === 'ArrowDown') { e.preventDefault(); focusSub(sub.idx + 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); focusSub(sub.idx - 1); }
+        else if (e.key === 'Enter') { e.preventDefault(); sub.els[sub.idx].click(); }
+        else if (e.key === 'ArrowLeft' || e.key === 'Escape') { e.preventDefault(); closeSub(); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); if (opts && opts.onArrow) opts.onArrow(1); }
+        else return;
+        e.stopPropagation();
+        return;
+      }
+      const cur = idx >= 0 ? live[idx] : null;
       if (e.key === 'Escape') { e.preventDefault(); UI.closeMenus(); if (opts && opts.onEscape) opts.onEscape(); }
-      else if (e.key === 'ArrowDown') { e.preventDefault(); focusIdx(idx + 1); }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); focusIdx(idx - 1); }
-      else if (e.key === 'Enter' && idx >= 0) { e.preventDefault(); live[idx].el.click(); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); closeSub(); focusIdx(idx < 0 ? 0 : idx + 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); closeSub(); focusIdx(idx < 0 ? live.length - 1 : idx - 1); }
+      else if (e.key === 'Enter' && cur) { e.preventDefault(); if (cur.it.items) cur.openSub(true); else cur.el.click(); }
+      else if (e.key === 'ArrowRight' && cur && cur.it.items) { e.preventDefault(); cur.openSub(true); }
       else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && opts && opts.onArrow) { e.preventDefault(); opts.onArrow(e.key === 'ArrowRight' ? 1 : -1); }
       else return;
       e.stopPropagation();
@@ -12017,6 +12061,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
           if (bp.cond) vm.condBreaks.set(idx, B.Debug.makeCondition(bp.cond));
         }
       }
+      if (vm.tempBreak !== undefined && vm.tempBreak !== null) set.add(vm.tempBreak);
       vm.setBreakpoints(set);
     }
 
@@ -12447,6 +12492,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       for (const k of this.order) {
         const p = this.panels[k];
         p.tab.classList.toggle('active', k === id);
+        p.tab.setAttribute('aria-selected', k === id ? 'true' : 'false');
         p.el.classList.toggle('active', k === id);
       }
       this.active = id;
@@ -13943,7 +13989,11 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const s = this.settings;
       const app = this.el('app');
       app.style.setProperty('--explorer-w', s.explorerW + 'px');
-      app.style.setProperty('--screen-w', s.screenW + '%');
+      // clamp a saved screen width so the editor keeps its minimum width at this window size
+      const ws = this.el('workspace').getBoundingClientRect();
+      const ex = s.showExplorer && window.innerWidth >= 1200 ? s.explorerW + 4 : 0;
+      const maxPct = ws.width ? Math.max(18, ((ws.width - ex - 240 - 8) / ws.width) * 100) : 75;
+      app.style.setProperty('--screen-w', Math.min(s.screenW, maxPct) + '%');
       app.style.setProperty('--bottom-h', s.bottomH + 'px');
       this.el('workspace').classList.toggle('no-explorer', !s.showExplorer);
     }
@@ -13954,7 +14004,12 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         RC.UI.splitter(sp, (e) => {
           const ws = this.el('workspace').getBoundingClientRect();
           if (kind === 'explorer') this.settings.explorerW = Math.max(120, Math.min(480, e.clientX - ws.left));
-          else if (kind === 'screen') this.settings.screenW = Math.max(18, Math.min(75, ((ws.right - e.clientX) / ws.width) * 100));
+          else if (kind === 'screen') {
+            // keep the editor at least 240px wide and the screen fully inside the window
+            const ex = this.el('workspace').classList.contains('no-explorer') || window.innerWidth < 1200 ? 0 : this.settings.explorerW + 4;
+            const maxPct = Math.max(18, ((ws.width - ex - 240 - 8) / ws.width) * 100);
+            this.settings.screenW = Math.max(18, Math.min(75, maxPct, ((ws.right - e.clientX) / ws.width) * 100));
+          }
           else if (kind === 'bottom') this.settings.bottomH = Math.max(60, Math.min(window.innerHeight - 200, window.innerHeight - e.clientY - 24));
           this.applyLayout();
         }, () => { this.saveSettings(); for (const d of this.docs) d.editor.syncScroll(); });
@@ -13971,7 +14026,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     setMobileView(v) {
       const app = this.el('app');
       app.dataset.mview = v;
-      for (const b of this.el('mobileTabs').querySelectorAll('button')) b.classList.toggle('active', b.dataset.view === v);
+      for (const b of this.el('mobileTabs').querySelectorAll('button')) { b.classList.toggle('active', b.dataset.view === v); b.setAttribute('aria-selected', b.dataset.view === v ? 'true' : 'false'); }
       if (v === 'editor' && this.active) this.active.editor.render();
     }
     isMobile() { return window.matchMedia('(max-width: 820px), (max-height: 480px)').matches; }
@@ -14099,10 +14154,14 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.menuButtons = [];
       const defs = this.menuDefs();
       defs.forEach((m, i) => {
-        const btn = h('button.menu-btn', { type: 'button', 'aria-haspopup': 'true', 'data-menu': i },
+        const btn = h('button.menu-btn', { type: 'button', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'data-menu': i },
           h('span.hot', m.label[0]), m.label.slice(1));
-        btn.addEventListener('click', () => this.openMenu(i));
-        btn.addEventListener('mouseenter', () => { if (this.menuOpenIdx !== undefined && this.menuOpenIdx !== i) this.openMenu(i); });
+        btn.addEventListener('click', () => {
+          // a hover may have just opened this menu (moving from another open menu); keep it open
+          if (this.menuOpenIdx === i && this.menuOpenedBy === 'hover' && Date.now() - this.menuOpenedAt < 600) { this.menuOpenedBy = 'click'; return; }
+          this.openMenu(i);
+        });
+        btn.addEventListener('mouseenter', () => { if (this.menuOpenIdx !== undefined && this.menuOpenIdx !== i) this.openMenu(i, false, 'hover'); });
         bar.appendChild(btn);
         this.menuButtons.push(btn);
       });
@@ -14110,17 +14169,21 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.projLabel = h('span.proj');
       bar.appendChild(this.projLabel);
     }
-    openMenu(i, keyboard) {
+    openMenu(i, keyboard, how) {
       const btn = this.menuButtons[i];
-      if (this.menuOpenIdx === i && !keyboard) { RC.UI.closeMenus(); return; }
+      if (this.menuOpenIdx === i && !keyboard && how !== 'hover') { RC.UI.closeMenus(); return; }
+      RC.UI.closeMenus(); // let the previous menu's onClose run before we record the new state
+      this.menuOpenedBy = how || (keyboard ? 'keyboard' : 'click');
+      this.menuOpenedAt = Date.now();
       const r = btn.getBoundingClientRect();
       const defs = this.menuDefs();
-      this.menuButtons.forEach((b) => b.classList.remove('open'));
+      this.menuButtons.forEach((b) => { b.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); });
       btn.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
       this.menuOpenIdx = i;
       RC.UI.showMenu(defs[i].items(), r.left, r.bottom, {
         anchor: btn, keyboard,
-        onClose: () => { btn.classList.remove('open'); if (this.menuOpenIdx === i) this.menuOpenIdx = undefined; },
+        onClose: () => { btn.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); if (this.menuOpenIdx === i) this.menuOpenIdx = undefined; },
         onArrow: (d) => { const n = (i + d + this.menuButtons.length) % this.menuButtons.length; setTimeout(() => this.openMenu(n, true), 0); },
       });
     }
@@ -14876,7 +14939,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         vm.tempBreak = idx;
         vm.breakpoints.add(idx);
         vm.updateDbgFlag();
-        const off = vm.on('pause', () => { off(); this.runner.applyBreakpoints(); });
+        const off = vm.on('pause', () => { off(); vm.tempBreak = null; this.runner.applyBreakpoints(); });
         return true;
       };
       if (st === 'paused') { if (set()) this.continue(); return; }
@@ -15378,7 +15441,13 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         frame.classList.remove('focused');
         if (this.runner.state === 'running' || this.runner.state === 'waiting') hint.classList.add('show');
       });
-      c.addEventListener('mousedown', () => setTimeout(() => c.focus(), 0));
+      c.addEventListener('pointerdown', (e) => { this.lastPointer = e.pointerType; });
+      c.addEventListener('mousedown', (e) => {
+        // after a touch tap the browser fires a compatibility mousedown that would focus the canvas and
+        // close the soft keyboard; keep focus on the keyboard bridge instead
+        if (this.lastPointer === 'touch' || this.lastPointer === 'pen') { e.preventDefault(); return; }
+        setTimeout(() => c.focus(), 0);
+      });
       this.runner.display.on('mode', () => { this.updateStatus(); });
       // Text-mode border colour (COLOR ,,border) is drawn as a band around the screen, like CGA/EGA
       this.runner.display.on('border', (rgb) => { frame.style.boxShadow = rgb && !/^#0+$/.test(rgb) ? `0 0 0 10px ${rgb}, 0 0 30px rgba(0,0,0,.6)` : ''; });

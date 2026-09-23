@@ -100,7 +100,11 @@
       const s = this.settings;
       const app = this.el('app');
       app.style.setProperty('--explorer-w', s.explorerW + 'px');
-      app.style.setProperty('--screen-w', s.screenW + '%');
+      // clamp a saved screen width so the editor keeps its minimum width at this window size
+      const ws = this.el('workspace').getBoundingClientRect();
+      const ex = s.showExplorer && window.innerWidth >= 1200 ? s.explorerW + 4 : 0;
+      const maxPct = ws.width ? Math.max(18, ((ws.width - ex - 240 - 8) / ws.width) * 100) : 75;
+      app.style.setProperty('--screen-w', Math.min(s.screenW, maxPct) + '%');
       app.style.setProperty('--bottom-h', s.bottomH + 'px');
       this.el('workspace').classList.toggle('no-explorer', !s.showExplorer);
     }
@@ -111,7 +115,12 @@
         RC.UI.splitter(sp, (e) => {
           const ws = this.el('workspace').getBoundingClientRect();
           if (kind === 'explorer') this.settings.explorerW = Math.max(120, Math.min(480, e.clientX - ws.left));
-          else if (kind === 'screen') this.settings.screenW = Math.max(18, Math.min(75, ((ws.right - e.clientX) / ws.width) * 100));
+          else if (kind === 'screen') {
+            // keep the editor at least 240px wide and the screen fully inside the window
+            const ex = this.el('workspace').classList.contains('no-explorer') || window.innerWidth < 1200 ? 0 : this.settings.explorerW + 4;
+            const maxPct = Math.max(18, ((ws.width - ex - 240 - 8) / ws.width) * 100);
+            this.settings.screenW = Math.max(18, Math.min(75, maxPct, ((ws.right - e.clientX) / ws.width) * 100));
+          }
           else if (kind === 'bottom') this.settings.bottomH = Math.max(60, Math.min(window.innerHeight - 200, window.innerHeight - e.clientY - 24));
           this.applyLayout();
         }, () => { this.saveSettings(); for (const d of this.docs) d.editor.syncScroll(); });
@@ -128,7 +137,7 @@
     setMobileView(v) {
       const app = this.el('app');
       app.dataset.mview = v;
-      for (const b of this.el('mobileTabs').querySelectorAll('button')) b.classList.toggle('active', b.dataset.view === v);
+      for (const b of this.el('mobileTabs').querySelectorAll('button')) { b.classList.toggle('active', b.dataset.view === v); b.setAttribute('aria-selected', b.dataset.view === v ? 'true' : 'false'); }
       if (v === 'editor' && this.active) this.active.editor.render();
     }
     isMobile() { return window.matchMedia('(max-width: 820px), (max-height: 480px)').matches; }
@@ -256,10 +265,14 @@
       this.menuButtons = [];
       const defs = this.menuDefs();
       defs.forEach((m, i) => {
-        const btn = h('button.menu-btn', { type: 'button', 'aria-haspopup': 'true', 'data-menu': i },
+        const btn = h('button.menu-btn', { type: 'button', 'aria-haspopup': 'true', 'aria-expanded': 'false', 'data-menu': i },
           h('span.hot', m.label[0]), m.label.slice(1));
-        btn.addEventListener('click', () => this.openMenu(i));
-        btn.addEventListener('mouseenter', () => { if (this.menuOpenIdx !== undefined && this.menuOpenIdx !== i) this.openMenu(i); });
+        btn.addEventListener('click', () => {
+          // a hover may have just opened this menu (moving from another open menu); keep it open
+          if (this.menuOpenIdx === i && this.menuOpenedBy === 'hover' && Date.now() - this.menuOpenedAt < 600) { this.menuOpenedBy = 'click'; return; }
+          this.openMenu(i);
+        });
+        btn.addEventListener('mouseenter', () => { if (this.menuOpenIdx !== undefined && this.menuOpenIdx !== i) this.openMenu(i, false, 'hover'); });
         bar.appendChild(btn);
         this.menuButtons.push(btn);
       });
@@ -267,17 +280,21 @@
       this.projLabel = h('span.proj');
       bar.appendChild(this.projLabel);
     }
-    openMenu(i, keyboard) {
+    openMenu(i, keyboard, how) {
       const btn = this.menuButtons[i];
-      if (this.menuOpenIdx === i && !keyboard) { RC.UI.closeMenus(); return; }
+      if (this.menuOpenIdx === i && !keyboard && how !== 'hover') { RC.UI.closeMenus(); return; }
+      RC.UI.closeMenus(); // let the previous menu's onClose run before we record the new state
+      this.menuOpenedBy = how || (keyboard ? 'keyboard' : 'click');
+      this.menuOpenedAt = Date.now();
       const r = btn.getBoundingClientRect();
       const defs = this.menuDefs();
-      this.menuButtons.forEach((b) => b.classList.remove('open'));
+      this.menuButtons.forEach((b) => { b.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); });
       btn.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
       this.menuOpenIdx = i;
       RC.UI.showMenu(defs[i].items(), r.left, r.bottom, {
         anchor: btn, keyboard,
-        onClose: () => { btn.classList.remove('open'); if (this.menuOpenIdx === i) this.menuOpenIdx = undefined; },
+        onClose: () => { btn.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); if (this.menuOpenIdx === i) this.menuOpenIdx = undefined; },
         onArrow: (d) => { const n = (i + d + this.menuButtons.length) % this.menuButtons.length; setTimeout(() => this.openMenu(n, true), 0); },
       });
     }
@@ -1033,7 +1050,7 @@
         vm.tempBreak = idx;
         vm.breakpoints.add(idx);
         vm.updateDbgFlag();
-        const off = vm.on('pause', () => { off(); this.runner.applyBreakpoints(); });
+        const off = vm.on('pause', () => { off(); vm.tempBreak = null; this.runner.applyBreakpoints(); });
         return true;
       };
       if (st === 'paused') { if (set()) this.continue(); return; }
@@ -1535,7 +1552,13 @@
         frame.classList.remove('focused');
         if (this.runner.state === 'running' || this.runner.state === 'waiting') hint.classList.add('show');
       });
-      c.addEventListener('mousedown', () => setTimeout(() => c.focus(), 0));
+      c.addEventListener('pointerdown', (e) => { this.lastPointer = e.pointerType; });
+      c.addEventListener('mousedown', (e) => {
+        // after a touch tap the browser fires a compatibility mousedown that would focus the canvas and
+        // close the soft keyboard; keep focus on the keyboard bridge instead
+        if (this.lastPointer === 'touch' || this.lastPointer === 'pen') { e.preventDefault(); return; }
+        setTimeout(() => c.focus(), 0);
+      });
       this.runner.display.on('mode', () => { this.updateStatus(); });
       // Text-mode border colour (COLOR ,,border) is drawn as a band around the screen, like CGA/EGA
       this.runner.display.on('border', (rgb) => { frame.style.boxShadow = rgb && !/^#0+$/.test(rgb) ? `0 0 0 10px ${rgb}, 0 0 30px rgba(0,0,0,.6)` : ''; });

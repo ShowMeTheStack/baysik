@@ -41,6 +41,7 @@
       for (const k of this.order) {
         const p = this.panels[k];
         p.tab.classList.toggle('active', k === id);
+        p.tab.setAttribute('aria-selected', k === id ? 'true' : 'false');
         p.el.classList.toggle('active', k === id);
       }
       this.active = id;

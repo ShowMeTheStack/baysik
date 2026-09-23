@@ -14,17 +14,17 @@
 <div id="app" class="app">
   <header class="menubar" id="menubar" role="menubar" aria-label="Main menu"></header>
   <div class="toolbar" id="toolbar" role="toolbar" aria-label="Run and debug"></div>
-  <nav class="mobile-tabs" id="mobileTabs" aria-label="Views">
-    <button data-view="editor" class="active">Code</button>
-    <button data-view="screen">Screen</button>
-    <button data-view="debug">Debug</button>
-    <button data-view="files">Files</button>
+  <nav class="mobile-tabs" id="mobileTabs" aria-label="Views" role="tablist">
+    <button data-view="editor" class="active" role="tab" aria-selected="true">Code</button>
+    <button data-view="screen" role="tab" aria-selected="false">Screen</button>
+    <button data-view="debug" role="tab" aria-selected="false">Debug</button>
+    <button data-view="files" role="tab" aria-selected="false">Files</button>
   </nav>
   <div class="drawer-scrim" id="drawerScrim"></div>
   <main class="workspace" id="workspace">
     <aside class="explorer pane" id="explorer" aria-label="Files">
       <div class="pane-head"><span>Files</span><span class="pane-actions" id="explorerActions"></span><button class="icon-btn drawer-close" id="explorerClose" type="button" aria-label="Close files">✕</button></div>
-      <div class="explorer-body" id="explorerTree"></div>
+      <div class="explorer-body" id="explorerTree" role="tree" aria-label="Files and folders"></div>
       <div class="pane-head small"><span>Procedures</span></div>
       <div class="proc-list" id="procList"></div>
     </aside>

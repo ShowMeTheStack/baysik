@@ -277,6 +277,7 @@
           if (bp.cond) vm.condBreaks.set(idx, B.Debug.makeCondition(bp.cond));
         }
       }
+      if (vm.tempBreak !== undefined && vm.tempBreak !== null) set.add(vm.tempBreak);
       vm.setBreakpoints(set);
     }
 
