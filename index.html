@@ -6397,16 +6397,24 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
       const perm = fsCall(() => vfs.canWrite(file));
       if (perm === 'no') err(70);
       if (perm === 'ask') {
-        if (!vm.host.askPermission) err(70);
-        vm.stack.push(mode, num, file, len);
-        vm.pc--;
-        let state = 0;
-        vm.host.askPermission('write', r.display).then((ok) => { state = ok ? 1 : 2; });
-        vm.block({ poll: () => {
-          if (state === 2) { vm.pc++; vm.stack.length -= 4; throw new B.BasicError(70); }
-          return state === 1;
-        } });
-        return;
+        // The user answered on a previous attempt: the OPEN was re-executed with the answer recorded
+        const ans = vm.permAnswers && vm.permAnswers.get(f.key);
+        if (ans === false) { vm.permAnswers.delete(f.key); err(70); }
+        if (ans === true) { vm.permAnswers.delete(f.key); f.trusted = true; }
+        else {
+          if (!vm.host.askPermission) err(70);
+          vm.stack.push(mode, num, file, len);
+          vm.pc--;
+          let state = 0;
+          vm.host.askPermission('write', r.display).then((ok) => { state = ok ? 1 : 2; }, () => { state = 2; });
+          vm.permAnswers = vm.permAnswers || new Map();
+          vm.block({ poll: () => {
+            if (!state) return false;
+            vm.permAnswers.set(f.key, state === 1); // retry the OPEN, which reads the answer
+            return true;
+          } });
+          return;
+        }
       }
     }
     const exists = fsCall(() => vfs.exists(file));
@@ -6418,7 +6426,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         f.setData(fsCall(() => vfs.readFile(file)));
         break;
       case 'O':
-        fsCall(() => vfs.writeFile(file, new Uint8Array(0)));
+        fsCall(() => vfs.writeFile(file, new Uint8Array(0), { trusted: f.trusted }));
         f.dirty = true;
         break;
       case 'A':
@@ -6426,11 +6434,11 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         // strip trailing ^Z
         while (f.len && f.buf[f.len - 1] === 26) f.len--;
         f.pos = f.len;
-        if (!exists) fsCall(() => vfs.writeFile(file, new Uint8Array(0)));
+        if (!exists) fsCall(() => vfs.writeFile(file, new Uint8Array(0), { trusted: f.trusted }));
         break;
       case 'R': case 'B':
         if (exists) f.setData(fsCall(() => vfs.readFile(file)));
-        else fsCall(() => vfs.writeFile(file, new Uint8Array(0)));
+        else fsCall(() => vfs.writeFile(file, new Uint8Array(0), { trusted: f.trusted }));
         break;
     }
     vm.files.set(num, f);
@@ -6444,7 +6452,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     if (f.device) return;
     if (f.mode !== 'I' && f.dirty) {
       const vfs = vfsOf(vm);
-      try { vfs.writeFile(f.path, f.data()); } catch (e) {
+      try { vfs.writeFile(f.path, f.data(), { trusted: f.trusted }); } catch (e) {
         if (e instanceof RC.VfsError) err(e.code);
         throw e;
       }
@@ -6684,6 +6692,13 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
   B.fsName = function (vm, a, b) {
     const vfs = vfsOf(vm);
     if (!fsCall(() => vfs.exists(a))) err(53);
+    if (!fsCall(() => vfs.isReady(a))) {
+      // a file on a mounted folder that was never read: load its contents before renaming
+      vm.stack.push(a, b); vm.pc--;
+      let done = false; vfs.load(a).then(() => { done = true; });
+      vm.block({ poll: () => done });
+      return;
+    }
     if (fsCall(() => vfs.exists(b))) err(58);
     fsCall(() => vfs.rename(a, b));
   };
@@ -9244,11 +9259,12 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
       }
       for (const [k1, k2] of moves) {
         const x = d.entries.get(k1);
+        const before = Object.assign({}, x); // old name, for deleting the original on mounted folders
         d.entries.delete(k1);
         if (k1 === a.key) x.name = b.name;
         d.entries.set(k2, x);
-        this.changed(d, k1, null, x);
         this.changed(d, k2, x);
+        this.changed(d, k1, null, before);
       }
     }
     chdir(path) {
@@ -11905,6 +11921,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         printer: { printLine: (s) => app.printerLine(s), flushPartial: () => {} },
         askPermission: (op, path) => app.askWritePermission(path),
         command: (vm, st, file) => this.programCommand(vm, st, file),
+        softKeys: this.softKeys || (this.softKeys = ['LIST ', 'RUN\r', 'LOAD"', 'SAVE"', 'CONT\r', ',"LPT1:"\r', 'TRON\r', 'TROFF\r', 'KEY ', 'SCREEN 0,0,0\r', '', '']),
         commandLine: '',
       };
     }
@@ -11943,7 +11960,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
 
     start(mainPath, text, opts) {
       opts = opts || {};
-      this.stop(true);
+      this.restarting = true;
+      try { this.stop(true); } finally { this.restarting = false; }
       const prog = this.compile(mainPath, text);
       this.prog = prog;
       this.mainPath = mainPath;
@@ -11956,6 +11974,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.audio.resume();
       this.applyBreakpoints();
       if (opts.stepInto) { vm.stepMode = 'into'; vm.stepDepth = 1; }
+      if (this.tronDefault) { vm.tron = true; }
+      this.startText = text;
       vm.updateDbgFlag();
       vm.start();
       this.kick();
@@ -11969,7 +11989,18 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       vm.on('state', (s) => this.emit('state', s, vm));
       vm.on('pause', (why) => { this.emit('pause', why, vm); });
       vm.on('end', (info) => { this.cleanupImmediate(vm); this.emit('end', info, vm); });
-      vm.on('error', (info) => { this.cleanupImmediate(vm); this.emit('error', info, vm); });
+      vm.on('error', (info) => {
+        const im = this.immediate;
+        if (im && im.saved && vm === this.vm) {
+          // an error in a direct statement during a break: report it, keep the break state
+          this.immediate = null;
+          this.restoreBreak(vm, im);
+          this.emit('immediateError', info, vm);
+          return;
+        }
+        this.cleanupImmediate(vm);
+        this.emit('error', info, vm);
+      });
       vm.on('chain', (req) => this.doChain(req));
       this.emit('vm', vm);
     }
@@ -12179,8 +12210,22 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       let vm = this.vm;
       if (!vm || vm.state === 'running' || vm.state === 'waiting') return false;
       if (vm.state === 'paused') {
-        B.Debug.execute(vm, text, this.app.selectedFrameIndex());
-        onDone && onDone(null);
+        // Break state (GW-BASIC "Break in NN"): run the statement on top of the paused program
+        // asynchronously (so INPUT, loops and graphics work), then return to the same break state.
+        const top = vm.frames[vm.frames.length - 1];
+        const snip = B.Debug.compileSnippet(vm, text, top, 'stmt');
+        const saved = { pc: vm.pc, frames: vm.frames, frame: vm.frame, sp: vm.stack.length, dbg: vm.dbg, skipBreak: vm.skipBreak, pauseReason: vm.pauseReason };
+        const ef = new B.Frame(top.proc, top.L, -1, 3, false);
+        ef.fors = top.fors; ef.stmt = top.stmt;
+        vm.frames = vm.frames.concat([ef]);
+        vm.frame = ef;
+        vm.pc = snip.startPc;
+        vm.pending = null;
+        vm.dbg = false;
+        this.immediate = { snip, onDone, saved };
+        vm.state = 'running';
+        this.emit('state', 'running', vm);
+        this.kick();
         return true;
       }
       const snip = B.Debug.compileSnippet(vm, text, vm.frames[0], 'stmt');
@@ -12208,14 +12253,32 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       vm.prog.stmts.length = im.snip.stmtsLen;
       vm.recordHistory = true;
     }
+    /** Put a paused program back into its break state after a direct statement ran on top of it */
+    restoreBreak(vm, im) {
+      const s = im.saved;
+      vm.prog.code.length = im.snip.startPc;
+      vm.prog.stmts.length = im.snip.stmtsLen;
+      Object.assign(vm, { pc: s.pc, frames: s.frames, frame: s.frame, dbg: s.dbg, skipBreak: s.skipBreak, pauseReason: s.pauseReason, pending: null, errorInfo: null });
+      vm.stack.length = s.sp;
+      vm.state = 'paused';
+      this.tronDefault = !!vm.tron;
+      this.emit('state', 'paused', vm);
+    }
     finishImmediate() {
       const vm = this.vm;
       const im = this.immediate;
       this.immediate = null;
+      if (im && im.saved) {
+        this.restoreBreak(vm, im);
+        this.emit('immediateDone', vm);
+        if (im.onDone) im.onDone(null);
+        return;
+      }
       if (im) {
         vm.prog.code.length = im.snip.startPc;
         vm.prog.stmts.length = im.snip.stmtsLen;
       }
+      this.tronDefault = !!vm.tron;
       vm.state = 'ended';
       vm.endReason = 'immediate';
       vm.recordHistory = true;
@@ -12799,6 +12862,12 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
   'use strict';
   const B = RC.Basic;
 
+  /** Map compiler messages to the terse GW-BASIC wording */
+  function gwMessage(m) {
+    if (/^Expected|not valid|^Subprogram not defined|^Label not defined/.test(m)) return 'Syntax error';
+    return m;
+  }
+
   class GwConsole {
     constructor(app) {
       this.app = app;
@@ -12809,6 +12878,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.docPath = null;
     }
     get d() { return this.app.runner.display; }
+    /** Soft-key texts are shared with programs, so KEY n,"..." changes what F1..F10 type */
+    get softKeys() { const r = this.runner; return r.softKeys || (r.softKeys = r.makeHost().softKeys); }
     get runner() { return this.app.runner; }
 
     doc() {
@@ -12850,7 +12921,6 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         d.width(80, 25);
         d.color(7, 0);
         d.cls(0);
-        this.softKeys = this.runner.vm && this.runner.vm.host.softKeys ? this.runner.vm.host.softKeys : ['LIST ', 'RUN\r', 'LOAD"', 'SAVE"', 'CONT\r', ',"LPT1:"\r', 'TRON\r', 'TROFF\r', 'KEY ', 'SCREEN 0,0,0\r'];
         d.setKeyLine(true, this.softKeys);
         this.cont = [];
         this.print('Baysik GW-BASIC compatible console');
@@ -12896,7 +12966,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const kb = this.runner.keyboard;
       const scan = RC.Keyboard.SCAN[e.code] || 0;
       if (e.ctrlKey && (e.key === 'c' || e.key === 'C' || e.code === 'Pause' || e.code === 'ScrollLock')) { this.breakKey(); return true; }
-      if (e.key === 'F4' || (e.altKey && !e.ctrlKey)) return false; // let the IDE handle
+      if (e.altKey && !e.ctrlKey) return false; // Alt+letter opens IDE menus
       const k = kb.translate(e, scan);
       if (k === null || k === undefined) return !!scan;
       this.handleKey(k);
@@ -13071,7 +13141,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       try {
         if (this.command(line)) return;
       } catch (e) {
-        this.err(e instanceof B.CompileError ? (e.message.startsWith('Expected') ? 'Syntax error' : e.message) : (e.message || String(e)));
+        this.err(e instanceof B.CompileError ? gwMessage(e.message) : (e.message || String(e)));
         this.ok();
         return;
       }
@@ -13119,7 +13189,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         }
         case 'CONT': {
           const vm = this.runner.vm;
-          if (!vm || vm.state !== 'paused') { this.err("Can't continue"); this.ok(); return true; }
+          if (!vm || vm.state !== 'paused' || (this.runner.startText !== undefined && this.runner.startText !== this.text())) { this.err("Can't continue"); this.ok(); return true; }
           this.app.continue();
           return true;
         }
@@ -13197,6 +13267,13 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
           return true;
         }
         case 'SYSTEM': this.toggle(false); return true;
+        case 'GOTO': {
+          // GOTO n in direct mode starts the program at line n (GW-BASIC)
+          const m2 = /^\s*(\d+)\s*$/.exec(rest);
+          if (!m2) return this.immediate(line);
+          this.runProgram(+m2[1]);
+          return true;
+        }
         case 'FILES': case 'KILL': case 'NAME': case 'MKDIR': case 'RMDIR': case 'CHDIR':
         default:
           return this.immediate(line);
@@ -13216,15 +13293,10 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const r = this.runner;
       r.ensureIdleVm();
       try {
-        if (r.vm && r.vm.state === 'paused') {
-          try { RC.Basic.Debug.execute(r.vm, line, r.vm.frames.length - 1); } catch (e) { this.err(e instanceof B.BasicError ? e.message : (/^Expected|not valid/.test(e.message) ? 'Syntax error' : e.message)); }
-          this.ok();
-          return true;
-        }
         const ok = r.runImmediate(line, null);
         if (!ok) { this.err('Busy'); this.ok(); }
       } catch (e) {
-        if (e instanceof B.CompileError) { this.err(/^Expected|not valid/.test(e.message) ? 'Syntax error' : e.message); this.ok(); }
+        if (e instanceof B.CompileError) { this.err(gwMessage(e.message)); this.ok(); }
         else throw e;
       }
       return true;
@@ -13234,12 +13306,12 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.app.saveDoc(d);
       const text = d.editor.getValue();
       try {
-        const vm = this.runner.start(d.path, text, { keepScreen: true });
         if (lineNo !== null && lineNo !== undefined) {
-          const pc = vm.prog.module.labels.get(String(lineNo));
-          if (pc === undefined) { vm.stop(); this.err('Undefined line number'); this.ok(); return; }
-          vm.pc = pc;
+          const prog = this.runner.compile(d.path, text);
+          if (!prog.module.labels.has(String(lineNo))) { this.err('Undefined line number'); this.ok(); return; }
         }
+        const vm = this.runner.start(d.path, text, { keepScreen: true });
+        if (lineNo !== null && lineNo !== undefined) vm.pc = vm.prog.module.labels.get(String(lineNo));
         this.app.updateUI();
       } catch (e) {
         if (e instanceof B.CompileError) { this.onCompileError(e); this.app.showCompileError(e); }

@@ -121,6 +121,7 @@
         printer: { printLine: (s) => app.printerLine(s), flushPartial: () => {} },
         askPermission: (op, path) => app.askWritePermission(path),
         command: (vm, st, file) => this.programCommand(vm, st, file),
+        softKeys: this.softKeys || (this.softKeys = ['LIST ', 'RUN\r', 'LOAD"', 'SAVE"', 'CONT\r', ',"LPT1:"\r', 'TRON\r', 'TROFF\r', 'KEY ', 'SCREEN 0,0,0\r', '', '']),
         commandLine: '',
       };
     }
@@ -159,7 +160,8 @@
 
     start(mainPath, text, opts) {
       opts = opts || {};
-      this.stop(true);
+      this.restarting = true;
+      try { this.stop(true); } finally { this.restarting = false; }
       const prog = this.compile(mainPath, text);
       this.prog = prog;
       this.mainPath = mainPath;
@@ -172,6 +174,8 @@
       this.audio.resume();
       this.applyBreakpoints();
       if (opts.stepInto) { vm.stepMode = 'into'; vm.stepDepth = 1; }
+      if (this.tronDefault) { vm.tron = true; }
+      this.startText = text;
       vm.updateDbgFlag();
       vm.start();
       this.kick();
@@ -185,7 +189,18 @@
       vm.on('state', (s) => this.emit('state', s, vm));
       vm.on('pause', (why) => { this.emit('pause', why, vm); });
       vm.on('end', (info) => { this.cleanupImmediate(vm); this.emit('end', info, vm); });
-      vm.on('error', (info) => { this.cleanupImmediate(vm); this.emit('error', info, vm); });
+      vm.on('error', (info) => {
+        const im = this.immediate;
+        if (im && im.saved && vm === this.vm) {
+          // an error in a direct statement during a break: report it, keep the break state
+          this.immediate = null;
+          this.restoreBreak(vm, im);
+          this.emit('immediateError', info, vm);
+          return;
+        }
+        this.cleanupImmediate(vm);
+        this.emit('error', info, vm);
+      });
       vm.on('chain', (req) => this.doChain(req));
       this.emit('vm', vm);
     }
@@ -395,8 +410,22 @@
       let vm = this.vm;
       if (!vm || vm.state === 'running' || vm.state === 'waiting') return false;
       if (vm.state === 'paused') {
-        B.Debug.execute(vm, text, this.app.selectedFrameIndex());
-        onDone && onDone(null);
+        // Break state (GW-BASIC "Break in NN"): run the statement on top of the paused program
+        // asynchronously (so INPUT, loops and graphics work), then return to the same break state.
+        const top = vm.frames[vm.frames.length - 1];
+        const snip = B.Debug.compileSnippet(vm, text, top, 'stmt');
+        const saved = { pc: vm.pc, frames: vm.frames, frame: vm.frame, sp: vm.stack.length, dbg: vm.dbg, skipBreak: vm.skipBreak, pauseReason: vm.pauseReason };
+        const ef = new B.Frame(top.proc, top.L, -1, 3, false);
+        ef.fors = top.fors; ef.stmt = top.stmt;
+        vm.frames = vm.frames.concat([ef]);
+        vm.frame = ef;
+        vm.pc = snip.startPc;
+        vm.pending = null;
+        vm.dbg = false;
+        this.immediate = { snip, onDone, saved };
+        vm.state = 'running';
+        this.emit('state', 'running', vm);
+        this.kick();
         return true;
       }
       const snip = B.Debug.compileSnippet(vm, text, vm.frames[0], 'stmt');
@@ -424,14 +453,32 @@
       vm.prog.stmts.length = im.snip.stmtsLen;
       vm.recordHistory = true;
     }
+    /** Put a paused program back into its break state after a direct statement ran on top of it */
+    restoreBreak(vm, im) {
+      const s = im.saved;
+      vm.prog.code.length = im.snip.startPc;
+      vm.prog.stmts.length = im.snip.stmtsLen;
+      Object.assign(vm, { pc: s.pc, frames: s.frames, frame: s.frame, dbg: s.dbg, skipBreak: s.skipBreak, pauseReason: s.pauseReason, pending: null, errorInfo: null });
+      vm.stack.length = s.sp;
+      vm.state = 'paused';
+      this.tronDefault = !!vm.tron;
+      this.emit('state', 'paused', vm);
+    }
     finishImmediate() {
       const vm = this.vm;
       const im = this.immediate;
       this.immediate = null;
+      if (im && im.saved) {
+        this.restoreBreak(vm, im);
+        this.emit('immediateDone', vm);
+        if (im.onDone) im.onDone(null);
+        return;
+      }
       if (im) {
         vm.prog.code.length = im.snip.startPc;
         vm.prog.stmts.length = im.snip.stmtsLen;
       }
+      this.tronDefault = !!vm.tron;
       vm.state = 'ended';
       vm.endReason = 'immediate';
       vm.recordHistory = true;

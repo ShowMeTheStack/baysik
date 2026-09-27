@@ -207,11 +207,12 @@
       }
       for (const [k1, k2] of moves) {
         const x = d.entries.get(k1);
+        const before = Object.assign({}, x); // old name, for deleting the original on mounted folders
         d.entries.delete(k1);
         if (k1 === a.key) x.name = b.name;
         d.entries.set(k2, x);
-        this.changed(d, k1, null, x);
         this.changed(d, k2, x);
+        this.changed(d, k1, null, before);
       }
     }
     chdir(path) {

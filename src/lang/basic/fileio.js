@@ -120,16 +120,24 @@
       const perm = fsCall(() => vfs.canWrite(file));
       if (perm === 'no') err(70);
       if (perm === 'ask') {
-        if (!vm.host.askPermission) err(70);
-        vm.stack.push(mode, num, file, len);
-        vm.pc--;
-        let state = 0;
-        vm.host.askPermission('write', r.display).then((ok) => { state = ok ? 1 : 2; });
-        vm.block({ poll: () => {
-          if (state === 2) { vm.pc++; vm.stack.length -= 4; throw new B.BasicError(70); }
-          return state === 1;
-        } });
-        return;
+        // The user answered on a previous attempt: the OPEN was re-executed with the answer recorded
+        const ans = vm.permAnswers && vm.permAnswers.get(f.key);
+        if (ans === false) { vm.permAnswers.delete(f.key); err(70); }
+        if (ans === true) { vm.permAnswers.delete(f.key); f.trusted = true; }
+        else {
+          if (!vm.host.askPermission) err(70);
+          vm.stack.push(mode, num, file, len);
+          vm.pc--;
+          let state = 0;
+          vm.host.askPermission('write', r.display).then((ok) => { state = ok ? 1 : 2; }, () => { state = 2; });
+          vm.permAnswers = vm.permAnswers || new Map();
+          vm.block({ poll: () => {
+            if (!state) return false;
+            vm.permAnswers.set(f.key, state === 1); // retry the OPEN, which reads the answer
+            return true;
+          } });
+          return;
+        }
       }
     }
     const exists = fsCall(() => vfs.exists(file));
@@ -141,7 +149,7 @@
         f.setData(fsCall(() => vfs.readFile(file)));
         break;
       case 'O':
-        fsCall(() => vfs.writeFile(file, new Uint8Array(0)));
+        fsCall(() => vfs.writeFile(file, new Uint8Array(0), { trusted: f.trusted }));
         f.dirty = true;
         break;
       case 'A':
@@ -149,11 +157,11 @@
         // strip trailing ^Z
         while (f.len && f.buf[f.len - 1] === 26) f.len--;
         f.pos = f.len;
-        if (!exists) fsCall(() => vfs.writeFile(file, new Uint8Array(0)));
+        if (!exists) fsCall(() => vfs.writeFile(file, new Uint8Array(0), { trusted: f.trusted }));
         break;
       case 'R': case 'B':
         if (exists) f.setData(fsCall(() => vfs.readFile(file)));
-        else fsCall(() => vfs.writeFile(file, new Uint8Array(0)));
+        else fsCall(() => vfs.writeFile(file, new Uint8Array(0), { trusted: f.trusted }));
         break;
     }
     vm.files.set(num, f);
@@ -167,7 +175,7 @@
     if (f.device) return;
     if (f.mode !== 'I' && f.dirty) {
       const vfs = vfsOf(vm);
-      try { vfs.writeFile(f.path, f.data()); } catch (e) {
+      try { vfs.writeFile(f.path, f.data(), { trusted: f.trusted }); } catch (e) {
         if (e instanceof RC.VfsError) err(e.code);
         throw e;
       }
@@ -407,6 +415,13 @@
   B.fsName = function (vm, a, b) {
     const vfs = vfsOf(vm);
     if (!fsCall(() => vfs.exists(a))) err(53);
+    if (!fsCall(() => vfs.isReady(a))) {
+      // a file on a mounted folder that was never read: load its contents before renaming
+      vm.stack.push(a, b); vm.pc--;
+      let done = false; vfs.load(a).then(() => { done = true; });
+      vm.block({ poll: () => done });
+      return;
+    }
     if (fsCall(() => vfs.exists(b))) err(58);
     fsCall(() => vfs.rename(a, b));
   };

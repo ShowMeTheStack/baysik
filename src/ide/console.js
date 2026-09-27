@@ -4,6 +4,12 @@
   'use strict';
   const B = RC.Basic;
 
+  /** Map compiler messages to the terse GW-BASIC wording */
+  function gwMessage(m) {
+    if (/^Expected|not valid|^Subprogram not defined|^Label not defined/.test(m)) return 'Syntax error';
+    return m;
+  }
+
   class GwConsole {
     constructor(app) {
       this.app = app;
@@ -14,6 +20,8 @@
       this.docPath = null;
     }
     get d() { return this.app.runner.display; }
+    /** Soft-key texts are shared with programs, so KEY n,"..." changes what F1..F10 type */
+    get softKeys() { const r = this.runner; return r.softKeys || (r.softKeys = r.makeHost().softKeys); }
     get runner() { return this.app.runner; }
 
     doc() {
@@ -55,7 +63,6 @@
         d.width(80, 25);
         d.color(7, 0);
         d.cls(0);
-        this.softKeys = this.runner.vm && this.runner.vm.host.softKeys ? this.runner.vm.host.softKeys : ['LIST ', 'RUN\r', 'LOAD"', 'SAVE"', 'CONT\r', ',"LPT1:"\r', 'TRON\r', 'TROFF\r', 'KEY ', 'SCREEN 0,0,0\r'];
         d.setKeyLine(true, this.softKeys);
         this.cont = [];
         this.print('Baysik GW-BASIC compatible console');
@@ -101,7 +108,7 @@
       const kb = this.runner.keyboard;
       const scan = RC.Keyboard.SCAN[e.code] || 0;
       if (e.ctrlKey && (e.key === 'c' || e.key === 'C' || e.code === 'Pause' || e.code === 'ScrollLock')) { this.breakKey(); return true; }
-      if (e.key === 'F4' || (e.altKey && !e.ctrlKey)) return false; // let the IDE handle
+      if (e.altKey && !e.ctrlKey) return false; // Alt+letter opens IDE menus
       const k = kb.translate(e, scan);
       if (k === null || k === undefined) return !!scan;
       this.handleKey(k);
@@ -276,7 +283,7 @@
       try {
         if (this.command(line)) return;
       } catch (e) {
-        this.err(e instanceof B.CompileError ? (e.message.startsWith('Expected') ? 'Syntax error' : e.message) : (e.message || String(e)));
+        this.err(e instanceof B.CompileError ? gwMessage(e.message) : (e.message || String(e)));
         this.ok();
         return;
       }
@@ -324,7 +331,7 @@
         }
         case 'CONT': {
           const vm = this.runner.vm;
-          if (!vm || vm.state !== 'paused') { this.err("Can't continue"); this.ok(); return true; }
+          if (!vm || vm.state !== 'paused' || (this.runner.startText !== undefined && this.runner.startText !== this.text())) { this.err("Can't continue"); this.ok(); return true; }
           this.app.continue();
           return true;
         }
@@ -402,6 +409,13 @@
           return true;
         }
         case 'SYSTEM': this.toggle(false); return true;
+        case 'GOTO': {
+          // GOTO n in direct mode starts the program at line n (GW-BASIC)
+          const m2 = /^\s*(\d+)\s*$/.exec(rest);
+          if (!m2) return this.immediate(line);
+          this.runProgram(+m2[1]);
+          return true;
+        }
         case 'FILES': case 'KILL': case 'NAME': case 'MKDIR': case 'RMDIR': case 'CHDIR':
         default:
           return this.immediate(line);
@@ -421,15 +435,10 @@
       const r = this.runner;
       r.ensureIdleVm();
       try {
-        if (r.vm && r.vm.state === 'paused') {
-          try { RC.Basic.Debug.execute(r.vm, line, r.vm.frames.length - 1); } catch (e) { this.err(e instanceof B.BasicError ? e.message : (/^Expected|not valid/.test(e.message) ? 'Syntax error' : e.message)); }
-          this.ok();
-          return true;
-        }
         const ok = r.runImmediate(line, null);
         if (!ok) { this.err('Busy'); this.ok(); }
       } catch (e) {
-        if (e instanceof B.CompileError) { this.err(/^Expected|not valid/.test(e.message) ? 'Syntax error' : e.message); this.ok(); }
+        if (e instanceof B.CompileError) { this.err(gwMessage(e.message)); this.ok(); }
         else throw e;
       }
       return true;
@@ -439,12 +448,12 @@
       this.app.saveDoc(d);
       const text = d.editor.getValue();
       try {
-        const vm = this.runner.start(d.path, text, { keepScreen: true });
         if (lineNo !== null && lineNo !== undefined) {
-          const pc = vm.prog.module.labels.get(String(lineNo));
-          if (pc === undefined) { vm.stop(); this.err('Undefined line number'); this.ok(); return; }
-          vm.pc = pc;
+          const prog = this.runner.compile(d.path, text);
+          if (!prog.module.labels.has(String(lineNo))) { this.err('Undefined line number'); this.ok(); return; }
         }
+        const vm = this.runner.start(d.path, text, { keepScreen: true });
+        if (lineNo !== null && lineNo !== undefined) vm.pc = vm.prog.module.labels.get(String(lineNo));
         this.app.updateUI();
       } catch (e) {
         if (e instanceof B.CompileError) { this.onCompileError(e); this.app.showCompileError(e); }
