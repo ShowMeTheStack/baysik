@@ -23,7 +23,9 @@
       const w = word.toUpperCase();
       const direct = K.find((k) => k[0] === w) || K.find((k) => k[0] === ALIASES[w]);
       if (direct) return direct;
-      return K.find((k) => k[2].toUpperCase().includes(w)) || null;
+      if (w.length < 2) return null;
+      const re = new RegExp('\\b' + w.replace(/[$%&!#]/g, '\\$&') + '\\b');
+      return K.find((k) => re.test(k[2].toUpperCase())) || null;
     },
     errorHint(code) { return RC.BASIC_HELP.ERROR_HINTS[code] || null; },
     renderEntry(k) {
@@ -50,12 +52,14 @@
           const tryBtn = main.querySelector('[data-try]');
           if (tryBtn) tryBtn.addEventListener('click', () => { closeFn(); Help.tryExample(app, k); });
         }
-        for (const el of nav.querySelectorAll('div[data-key]')) el.classList.toggle('sel', el.dataset.key === key);
+        for (const el of navList.querySelectorAll('div[data-key]')) el.classList.toggle('sel', el.dataset.key === key);
         main.scrollTop = 0;
       };
+      nav.appendChild(search);
+      const navList = nav;
       const build = () => {
-        nav.innerHTML = '';
-        nav.appendChild(search);
+        // rebuild everything except the search box, so it keeps focus while typing
+        while (nav.lastChild && nav.lastChild !== search) nav.removeChild(nav.lastChild);
         const q = search.value.trim().toUpperCase();
         if (!q) {
           nav.appendChild(h('div.grp', 'Topics'));
@@ -74,7 +78,13 @@
       };
       search.addEventListener('input', build);
       search.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { const first = nav.querySelector('div[data-key]'); if (first) first.click(); }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const q = search.value.trim().toUpperCase();
+          const exact = q && navList.querySelector('div[data-key="' + CSS.escape(q) + '"]');
+          const first = exact || navList.querySelector('div[data-key]:not([data-key="__errors"])');
+          if (first) first.click();
+        }
       });
       build();
       const entry = Help.find(word);
@@ -92,7 +102,7 @@
       const vfs = app.vfs;
       if (!vfs.exists('C:\\MYPROGS')) vfs.mkdir('C:\\MYPROGS');
       const p = 'C:\\MYPROGS\\TRY_' + k[0].replace(/[^A-Z0-9]/gi, '').slice(0, 4) + '.BAS';
-      vfs.writeFile(p, app.encodeText("' Example for " + k[0] + ' — press F5 to run\n' + k[4] + '\n'), { trusted: true });
+      vfs.writeFile(p, app.encodeText("' Example for " + k[0] + ' - press F5 to run\n' + k[4] + '\n'), { trusted: true });
       const d = app.docByPath(p);
       if (d) { d.editor.setValue(app.decodeText(vfs.readFile(p))); d.savedText = d.editor.getValue(); d.dirty = false; }
       app.openFile(p);

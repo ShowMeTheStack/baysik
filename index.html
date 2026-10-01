@@ -487,6 +487,23 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
   .workspace.no-explorer .explorer { display: flex; }
 }
 
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+  --bg: #15171c; --pane: #1d2027; --pane2: #171a20; --pane-head: #262a33; --pane-head-fg: #c9d1e0;
+  --text: #d7dce6; --muted: #8b93a6; --border: #2e3340; --accent: #6cb6ff; --accent-fg: #0b1220;
+  --btn: #2b303b; --btn-fg: #d7dce6; --btn-hover: #384050;
+  --menu: #1d2027; --menu-fg: #d7dce6; --menu-hot: #6cb6ff; --menu-sel: #2f3a52; --menu-sel-fg: #fff;
+  --input: #12141a;
+  --ed-bg: #16181d; --ed-fg: #d4d4d4; --ed-gutter: #16181d; --ed-gutter-fg: #5b6272; --ed-caret: #6cb6ff;
+  --ed-sel: rgba(108, 182, 255, .28); --ed-cur: rgba(255,255,255,.04);
+  --syn-kw: #c792ea; --syn-fn: #82aaff; --syn-str: #c3e88d; --syn-num: #f78c6c; --syn-com: #6a7a8c; --syn-lbl: #ffcb6b; --syn-op: #89ddff; --syn-meta: #ff5370;
+  --exec: rgba(255, 203, 107, .22); --exec-border: #ffcb6b; --frame: rgba(130, 170, 255, .14);
+  --bp: #f14c4c; --err: #f14c4c; --ok: #4ec98a; --warn: #ffcb6b;
+  --radius: 6px;
+  color-scheme: dark;
+}
+}
+
 </style>
 </head>
 <body>
@@ -9555,7 +9572,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     ['GOTO', 'Program flow', 'GOTO {linenumber | label}', 'Jumps to another line. Labels are names followed by a colon, e.g. Again:', 'Again:\nINPUT "Again (Y/N)"; a$\nIF a$ = "Y" THEN GOTO Again'],
     ['GOSUB', 'Program flow', 'GOSUB {linenumber | label}\n...\nRETURN', 'Calls a subroutine within the same module; RETURN comes back to the statement after the GOSUB.', 'GOSUB DrawBox\nEND\nDrawBox:\n    LINE (0, 0)-(100, 50), 14, B\n    RETURN'],
     ['RETURN', 'Program flow', 'RETURN [{linenumber | label}]', 'Returns from a GOSUB (or an ON TIMER/KEY event handler). With a target, returns to that line instead.', ''],
-    ['ON', 'Program flow', 'ON n GOTO line1, line2...\nON n GOSUB line1, line2...\nON ERROR GOTO line\nON {TIMER(s) | KEY(n) | PLAY(n) | STRIG(n) | PEN} GOSUB line', 'Computed jumps (n = 1 picks the first target) and event/error trapping.', 'ON choice GOSUB Easy, Medium, Hard'],
+    ['ON', 'Program flow', 'ON n GOTO line1, line2...\nON n GOSUB line1, line2...\nON ERROR GOTO line\nON {TIMER(s) | KEY(n) | PLAY(n) | STRIG(n) | PEN} GOSUB line', 'Computed jumps (n = 1 picks the first target) and event/error trapping.', 'INPUT "Level 1-3"; choice\nON choice GOSUB Easy, Medium, Hard\nEND\nEasy: PRINT "Easy mode": RETURN\nMedium: PRINT "Medium mode": RETURN\nHard: PRINT "Hard mode": RETURN'],
     ['EXIT', 'Program flow', 'EXIT {FOR | DO | SUB | FUNCTION | DEF}', 'Leaves a loop or procedure immediately.', ''],
     ['END', 'Program flow', 'END\nEND {IF | SELECT | SUB | FUNCTION | DEF | TYPE}', 'END alone stops the program and closes files. Other forms close a block.', ''],
     ['STOP', 'Program flow', 'STOP', 'Pauses the program in the debugger, like a breakpoint written in code. Press F5 to continue (CONT in the GW-BASIC console).', ''],
@@ -9573,7 +9590,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     ['CHAIN', 'Procedures', 'CHAIN filespec$ [, line]', 'Runs another BASIC program, keeping open files and passing COMMON variables.', 'CHAIN "LEVEL2"'],
     ['RUN', 'Procedures', 'RUN [linenumber | filespec$]', 'Restarts the program (clearing variables), or loads and runs another program file.', ''],
     // ---- Variables
-    ['DIM', 'Variables & types', 'DIM [SHARED] variable[(subscripts)] [AS type] [, ...]', 'Declares variables and arrays. Subscripts can be "upper" or "lower TO upper". Types: INTEGER, LONG, SINGLE, DOUBLE, STRING, STRING * n, or a TYPE.', 'DIM scores(1 TO 10) AS INTEGER\nDIM grid(20, 20)\nDIM name AS STRING * 12'],
+    ['DIM', 'Variables & types', 'DIM [SHARED] variable[(subscripts)] [AS type] [, ...]', 'Declares variables and arrays. Subscripts can be "upper" or "lower TO upper". Types: INTEGER, LONG, SINGLE, DOUBLE, STRING, STRING * n, or a TYPE.', 'DIM scores(1 TO 10) AS INTEGER\nDIM grid(20, 20)\nDIM nm AS STRING * 12'],
     ['REDIM', 'Variables & types', 'REDIM [PRESERVE] [SHARED] array(subscripts) [AS type]', 'Changes the size of a dynamic array. Without PRESERVE the contents are cleared.', ''],
     ['ERASE', 'Variables & types', 'ERASE array [, array]', 'Clears a static array or frees a dynamic one.', ''],
     ['CONST', 'Variables & types', 'CONST name = expression [, ...]', 'Defines a named constant that cannot change.', 'CONST PI = 3.14159, TITLE$ = "My Game"'],
@@ -11106,13 +11123,15 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
             return;
           }
         }
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(opts.cancelValue); }
-        else if (e.key === 'Enter' && opts.enterValue !== undefined && !(e.target instanceof HTMLTextAreaElement)) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(opts.cancelValue); return; }
+        if (e.key === 'Enter' && opts.enterValue !== undefined && !(e.target instanceof HTMLTextAreaElement)) {
           e.preventDefault(); e.stopPropagation();
           const v = typeof opts.enterValue === 'function' ? opts.enterValue() : opts.enterValue;
           if (v !== undefined) close(v);
+          return;
         }
-        e.stopPropagation();
+        // Other keys reach the focused control inside the dialog, but never the IDE/editor behind it
+        if (!box.contains(e.target)) { e.stopPropagation(); }
       };
       document.addEventListener('keydown', onKey, true);
       openModals.push(close);
@@ -13475,9 +13494,10 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       level.value = state.level;
       let closeFn = () => {};
       const opened = new Set(RC.UI.storage.get('libOpened', []));
+      nav.appendChild(search);
       const renderNav = () => {
-        nav.innerHTML = '';
-        nav.appendChild(search);
+        // rebuild everything except the search box, so it keeps focus while typing
+        while (nav.lastChild && nav.lastChild !== search) nav.removeChild(nav.lastChild);
         const all = h('div', { 'data-key': '*', class: state.cat === '*' ? 'sel' : '' }, `All programs (${L.items.length})`);
         all.addEventListener('click', () => { state.cat = '*'; render(); });
         nav.appendChild(all);
@@ -13503,7 +13523,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         const catName = state.cat === '*' ? 'All programs' : (L.categories.find((c) => c.id === state.cat) || {}).name;
         main.appendChild(h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', margin: '6px 0 10px' } }, h('h2', { style: { margin: 0, flex: 1 } }, catName), h('span.muted', list.length + ' shown'), level));
         const grid = h('div.gallery');
-        for (const it of list.slice(0, 400)) {
+        for (const it of list) {
           const card = h('button.card', { type: 'button', title: it.path },
             h('span.t', (opened.has(it.path) ? '✓ ' : '') + it.title),
             h('span.d', it.summary),
@@ -13656,7 +13676,9 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const w = word.toUpperCase();
       const direct = K.find((k) => k[0] === w) || K.find((k) => k[0] === ALIASES[w]);
       if (direct) return direct;
-      return K.find((k) => k[2].toUpperCase().includes(w)) || null;
+      if (w.length < 2) return null;
+      const re = new RegExp('\\b' + w.replace(/[$%&!#]/g, '\\$&') + '\\b');
+      return K.find((k) => re.test(k[2].toUpperCase())) || null;
     },
     errorHint(code) { return RC.BASIC_HELP.ERROR_HINTS[code] || null; },
     renderEntry(k) {
@@ -13683,12 +13705,14 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
           const tryBtn = main.querySelector('[data-try]');
           if (tryBtn) tryBtn.addEventListener('click', () => { closeFn(); Help.tryExample(app, k); });
         }
-        for (const el of nav.querySelectorAll('div[data-key]')) el.classList.toggle('sel', el.dataset.key === key);
+        for (const el of navList.querySelectorAll('div[data-key]')) el.classList.toggle('sel', el.dataset.key === key);
         main.scrollTop = 0;
       };
+      nav.appendChild(search);
+      const navList = nav;
       const build = () => {
-        nav.innerHTML = '';
-        nav.appendChild(search);
+        // rebuild everything except the search box, so it keeps focus while typing
+        while (nav.lastChild && nav.lastChild !== search) nav.removeChild(nav.lastChild);
         const q = search.value.trim().toUpperCase();
         if (!q) {
           nav.appendChild(h('div.grp', 'Topics'));
@@ -13707,7 +13731,13 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       };
       search.addEventListener('input', build);
       search.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { const first = nav.querySelector('div[data-key]'); if (first) first.click(); }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const q = search.value.trim().toUpperCase();
+          const exact = q && navList.querySelector('div[data-key="' + CSS.escape(q) + '"]');
+          const first = exact || navList.querySelector('div[data-key]:not([data-key="__errors"])');
+          if (first) first.click();
+        }
       });
       build();
       const entry = Help.find(word);
@@ -13725,7 +13755,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const vfs = app.vfs;
       if (!vfs.exists('C:\\MYPROGS')) vfs.mkdir('C:\\MYPROGS');
       const p = 'C:\\MYPROGS\\TRY_' + k[0].replace(/[^A-Z0-9]/gi, '').slice(0, 4) + '.BAS';
-      vfs.writeFile(p, app.encodeText("' Example for " + k[0] + ' — press F5 to run\n' + k[4] + '\n'), { trusted: true });
+      vfs.writeFile(p, app.encodeText("' Example for " + k[0] + ' - press F5 to run\n' + k[4] + '\n'), { trusted: true });
       const d = app.docByPath(p);
       if (d) { d.editor.setValue(app.decodeText(vfs.readFile(p))); d.savedText = d.editor.getValue(); d.dirty = false; }
       app.openFile(p);
@@ -13776,11 +13806,11 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       steps: [
         { title: 'Your first program', text: 'Let\'s write a program together. I\'ll create a new empty file called FIRST.BAS for you.', action: (app) => scratch(app, 'FIRST.BAS', '') },
         { sel: '#editorArea', title: 'Say hello', text: `Click in the editor and type:<br>${code('PRINT "Hello, world!"')}<br>(the keyword turns uppercase when you leave the line)`, wait: (app) => /PRINT\s*"[^"]+"/i.test(ed(app) ? ed(app).getValue() : ''), waitText: 'Waiting for a PRINT line…' },
-        { sel: '#tbRun', title: 'Run it!', text: 'Now press <kbd>F5</kbd> or click Run.', wait: (app) => app.runner.vm && app.runner.vm.prog && app.runner.vm.statementsExecuted > 0 && app.runner.state === 'ended', waitText: 'Waiting for the program to run…' },
+        { sel: '#tbRun', title: 'Run it!', text: 'Now press <kbd>F5</kbd> or click Run.', wait: (app, c) => (app.runCount || 0) > c.runs && app.runner.state === 'ended', waitText: 'Waiting for the program to run…' },
         { sel: '#screenArea', title: 'It works!', text: 'There\'s your message on the output screen. Every program starts like this.' },
         { sel: '#editorArea', title: 'Ask a question', text: `Add two more lines:<br>${code('INPUT "What is your name"; n$')}<br>${code('PRINT "Hi, "; n$')}<br>Variables ending with <b>$</b> hold text.`, wait: (app) => /INPUT[^\n]*;\s*n\$/i.test(ed(app) ? ed(app).getValue() : ''), waitText: 'Waiting for an INPUT line…' },
-        { sel: '#screenArea', title: 'Run and answer', text: 'Run again (F5). Click the screen if needed, type your name and press Enter.', wait: (app) => app.runner.state === 'ended' && /INPUT/i.test(ed(app) ? ed(app).getValue() : ''), waitText: 'Waiting for the program to finish…' },
-        { sel: '#editorArea', title: 'Loops', text: `Computers love repeating. Add:<br>${code('FOR i = 1 TO 10')}<br>${code('    PRINT i; "Hi!"')}<br>${code('NEXT i')}<br>then run it.`, wait: (app) => /NEXT/i.test(ed(app) ? ed(app).getValue() : '') && app.runner.state === 'ended', waitText: 'Waiting for a FOR…NEXT loop to run…' },
+        { sel: '#screenArea', title: 'Run and answer', text: 'Run again (F5). Click the screen if needed, type your name and press Enter.', wait: (app, c) => (app.runCount || 0) > c.runs && app.runner.state === 'ended' && /INPUT/i.test(ed(app) ? ed(app).getValue() : ''), waitText: 'Waiting for the program to finish…' },
+        { sel: '#editorArea', title: 'Loops', text: `Computers love repeating. Add:<br>${code('FOR i = 1 TO 10')}<br>${code('    PRINT i; "Hi!"')}<br>${code('NEXT i')}<br>then run it.`, wait: (app, c) => /NEXT/i.test(ed(app) ? ed(app).getValue() : '') && (app.runCount || 0) > c.runs && app.runner.state === 'ended', waitText: 'Waiting for a FOR…NEXT loop to run…' },
         { title: 'You are a programmer!', text: 'Next ideas: change the numbers, add COLOR 14 before PRINT, or try the <b>Graphics & Sound</b> tour. The examples are full of ideas to borrow.' },
       ],
     },
@@ -13788,7 +13818,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       title: 'Debugging',
       steps: [
         { title: 'Become a bug detective', text: 'The debugger lets you freeze a running program and look inside. I\'ll open FACTORL.BAS, which uses recursion (a FUNCTION calling itself).', action: (app) => { app.openFile('C:\\SAMPLES\\FACTORL.BAS'); } },
-        { sel: '.ed-gutter', title: 'Set a breakpoint', text: 'Find the line <code>Factorial# = 1</code> (marked with &lt;--). Click in the gutter left of its line number — a red dot appears.', wait: (app) => { const d = app.active; const bps = d && app.breakpoints.get(d.path); return !!(bps && [...bps.keys()].some((l) => /Factorial# = 1\b/.test(d.editor.getLine(l)))); }, waitText: 'Waiting for the breakpoint…' },
+        { sel: '.ed:not([style*="none"]) .ed-gutter', title: 'Set a breakpoint', text: 'Find the line <code>Factorial# = 1</code> (marked with &lt;--). Click in the gutter left of its line number — a red dot appears.', wait: (app) => { const d = app.active; const bps = d && app.breakpoints.get(d.path); return !!(bps && [...bps.keys()].some((l) => /Factorial# = 1\b/.test(d.editor.getLine(l)))); }, waitText: 'Waiting for the breakpoint…' },
         { sel: '#tbRun', title: 'Run to the breakpoint', text: 'Press <kbd>F5</kbd>. The program will run and stop right before that line.', wait: (app) => app.runner.state === 'paused', waitText: 'Waiting for the pause…' },
         { sel: '#bottom', title: 'The call stack', text: 'Open the <b>Call Stack</b> tab. Factorial has called itself again and again — each call is a frame with its own n%. Click a lower frame to look at it.', action: (app) => app.panels.show('stack') },
         { sel: '#bottom', title: 'Variables', text: 'The <b>Variables</b> tab shows the selected frame\'s locals and the module globals. Double-click a value to change it while the program is paused!', action: (app) => app.panels.show('vars') },
@@ -13802,7 +13832,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       title: 'Graphics & Sound',
       steps: [
         { title: 'Pixels and beeps', text: 'Classic PCs had several graphics modes. SCREEN picks one. Let\'s draw something.', action: (app) => scratch(app, 'DRAWING.BAS', "' Graphics demo\nSCREEN 12\nFOR r = 10 TO 200 STEP 10\n    CIRCLE (320, 240), r, r MOD 15 + 1\nNEXT\nLINE (100, 100)-(540, 380), 14, B\nPLAY \"T180 O3 L8 CEG>C\"\n") },
-        { sel: '#editorArea', title: 'Graphics statements', text: '<code>SCREEN 12</code> is 640×480 with 16 colors. <code>CIRCLE</code>, <code>LINE … B</code> (box) and <code>PLAY</code> (music) do the rest. Press <kbd>F5</kbd>.', wait: (app) => app.runner.state === 'ended' || app.runner.state === 'waiting', waitText: 'Waiting for you to run it…' },
+        { sel: '#editorArea', title: 'Graphics statements', text: '<code>SCREEN 12</code> is 640×480 with 16 colors. <code>CIRCLE</code>, <code>LINE … B</code> (box) and <code>PLAY</code> (music) do the rest. Press <kbd>F5</kbd>.', wait: (app, c) => (app.runCount || 0) > c.runs && (app.runner.state === 'ended' || app.runner.state === 'waiting'), waitText: 'Waiting for you to run it…' },
         { sel: '#screenArea', title: 'Try other modes', text: 'Change <code>SCREEN 12</code> to <code>SCREEN 13</code> (320×200, 256 colors) or <code>SCREEN 1</code> (old CGA, 4 colors) and run again. Help ▸ Language Reference ▸ Screen modes lists them all.' },
         { sel: '#tbExamples', title: 'More', text: 'MANDEL, PLASMA, SPRITES, TURTLE and MUSIC in the examples show palettes, animation, the DRAW language and songs.' },
       ],
@@ -13918,11 +13948,15 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         step.hint ? h('button.btn', { type: 'button', onclick: () => { hintEl.hidden = false; Tours.place(st); } }, 'Hint') : null, skip, back, next)].filter(Boolean));
       if (step.wait) {
         next.textContent = 'Skip step';
+        const ctx = { runs: st.app.runCount || 0 };
         st.timer = setInterval(() => {
           let ok = false;
-          try { ok = step.wait(st.app); } catch (e) { ok = false; }
+          try { ok = step.wait(st.app, ctx); } catch (e) { ok = false; }
           if (ok) {
-            clearInterval(st.timer); waitEl.textContent = '✓ Done!'; next.textContent = last ? (st.tour.finishLabel || 'Finish') : 'Next'; next.focus();
+            clearInterval(st.timer); waitEl.textContent = '✓ Done!'; next.textContent = last ? (st.tour.finishLabel || 'Finish') : 'Next';
+            // don't steal the keyboard from someone typing in the editor, the screen or an input
+            const ae = document.activeElement;
+            if (!ae || ae === document.body || pop.contains(ae)) next.focus();
             setTimeout(() => { if (Tours.active === st && st.tour.steps[st.i] === step && !last) { st.i++; Tours.show(st); } }, 900);
           }
         }, 300);
@@ -13932,7 +13966,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     },
     place(st) {
       const step = st.tour.steps[st.i];
-      const el = step.sel ? document.querySelector(step.sel) : null;
+      let el = step.sel ? document.querySelector(step.sel) : null;
+      if (el && el.closest('.toolbar, .menubar, .tabs')) el.scrollIntoView({ block: 'nearest', inline: 'center' });
       const pop = st.pop;
       const pw = pop.offsetWidth, ph = pop.offsetHeight;
       const W = window.innerWidth, H = window.innerHeight;
@@ -14418,7 +14453,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       editor.on('bpsShifted', (map) => { this.breakpoints.set(d.path, new Map(map)); this.saveBreakpoints(); });
       editor.on('find', (rep) => this.openFind(rep));
       editor.on('gotoLine', () => this.gotoLineDialog());
-      editor.on('help', (line, col) => { const w = B.wordAt(line, col); RC.Help.open(this, w ? w.word : null); });
+      editor.on('help', (line, col) => { const w = B.wordAt(line, col); RC.Help.open(this, w && w.kind === 'kw' ? w.word : null); });
       editor.on('hover', (pos, x, y) => this.callout.showFor(d, pos, x, y));
       editor.on('hoverOut', () => this.callout.scheduleHide(450));
       editor.on('context', (pos, e) => this.editorContextMenu(d, pos, e));
@@ -14837,7 +14872,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       if (!names.length) { RC.UI.toast('That folder is empty', 'err'); return; }
       const total = names.reduce((n, k) => n + files[k].length, 0);
       if (total > 2 * 1024 * 1024) { RC.UI.toast('Folder is too large to share as a link (2 MB max). Use Download Project instead.', 'err', 6000); return; }
-      const main = this.mainFor(dir) || (this.active && this.active.path.toUpperCase().startsWith(dir.toUpperCase()) ? this.active.path : null);
+      const inDir = (path) => path.toUpperCase().startsWith(dir.toUpperCase().replace(/\\$/, '') + '\\');
+      const main = this.mainFor(dir) || (this.active && inDir(this.active.path) ? this.active.path : null);
       const meta = { name: dir.replace(/^.*\\/, '') || 'PROJECT', main: main ? main.slice(dir.length + 1).replace(/\\/g, '/') : null, lang: 'basic' };
       const code = await RC.Share.pack(meta, files);
       const link = location.href.replace(/#.*$/, '') + '#share=' + code;
@@ -14887,7 +14923,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       dir = dir || (this.active ? this.active.path.replace(/\\[^\\]*$/, '') : 'C:\\');
       const files = this.collectFolder(dir);
       const zip = RC.Zip.create(files);
-      RC.UI.download((dir.replace(/^.*\\/, '') || 'DISK') + '.zip', zip, 'application/zip');
+      const base = dir.replace(/^[A-Za-z]:\\?$/, '').replace(/^.*\\/, '');
+      RC.UI.download((base || 'DISK') + '.zip', zip, 'application/zip');
     }
 
     // ---- mounting a real folder ---------------------------------------------------------------------------
@@ -14924,11 +14961,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         cancelValue: 'no', dismissable: false,
       });
       if (r === 'always') { const d = this.vfs.drives[path[0].toUpperCase()]; if (d) d.writable = true; this.renderExplorer(); return true; }
-      if (r === 'once') {
-        const d = this.vfs.drives[path[0].toUpperCase()];
-        if (d) { d.writable = true; setTimeout(() => { if (d.writable === true) d.writable = 'ask'; }, 0); }
-        return true;
-      }
+      if (r === 'once') return true; // only this OPEN (and its CLOSE) may write; the drive keeps asking
       return false;
     }
 
@@ -15043,6 +15076,11 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       r.on('chained', (path) => { this.setStatus('Running ' + path); this.updateUI(); });
       r.on('animate', () => this.animateTick());
       r.on('immediateDone', () => { this.updateUI(); if (this.console && this.console.active) this.console.ok(); });
+      r.on('immediateError', (info) => {
+        this.updateUI();
+        if (this.console && this.console.active) this.console.onError(info);
+        else this.panels.log('Error ' + info.code + ': ' + info.message, 'err');
+      });
     }
     onPaused(why) {
       const vm = this.runner.vm;
@@ -15100,7 +15138,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       else this.setStatus('Program ended — press F5 to run again' + (this.isMobile() ? '' : ', F4 to view output'));
       this.panels.refreshAll();
       this.updateUI();
-      if (this.console && this.console.active && info.reason !== 'immediate') this.console.ok();
+      if (this.console && this.console.active && info.reason !== 'immediate' && !this.runner.restarting) this.console.ok();
       if (info.reason === 'system' && this.console && this.console.active) this.console.toggle(false);
     }
     onRuntimeError(info, vm) {
@@ -15111,8 +15149,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.panels.log(`Runtime error ${info.code}: ${msg}` + (info.pos ? `  (${(info.pos.file || '').replace(/^.*\\/, '')}:${info.pos.line + 1})` : ''), 'err', info.pos);
       const hint = RC.Help.errorHint(info.code);
       if (hint) this.panels.log('Hint: ' + hint, 'note');
-      if (info.pos && info.pos.file) {
-        const d = this.openFile(info.pos.file);
+      if (info.pos && info.pos.file && this.isRealFile(info.pos.file)) {
+        const d = this.openFile(info.pos.file, this.console && this.console.active ? { noFocus: true } : undefined);
         if (d) d.editor.setError(info.pos.line);
       }
       this.panels.setProblems([{ kind: 'Runtime error ' + info.code, message: msg, pos: info.pos }]);
@@ -15128,10 +15166,12 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.setStatus('Syntax: ' + e.message + where, true);
       this.panels.setProblems([{ kind: 'Syntax error', message: e.message, pos }]);
       this.panels.log('Syntax error: ' + e.message + where, 'err', pos);
-      if (pos && pos.file) {
-        const d = this.openFile(pos.file);
-        if (d) { d.editor.setError(pos.line); d.editor.setCursor(pos.line, pos.col || 0); }
+      const inConsole = this.console && this.console.active;
+      if (pos && pos.file && this.isRealFile(pos.file)) {
+        const d = this.openFile(pos.file, inConsole ? { noFocus: true } : undefined);
+        if (d) { d.editor.setError(pos.line); if (!inConsole) d.editor.setCursor(pos.line, pos.col || 0); }
       }
+      if (inConsole) setTimeout(() => this.el('screen').focus(), 0);
       if (!(this.console && this.console.active)) this.panels.show('problems');
       if (this.console && this.console.active) this.console.onCompileError(e);
       else RC.UI.toast(h('div', h('b', 'Syntax error: '), e.message + where), 'err', 6000);
@@ -15347,6 +15387,12 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const app = this.el('app');
       app.classList.toggle('explorer-open', open === undefined ? !app.classList.contains('explorer-open') : open);
     }
+    /** True if path is an open document or an existing file (not '<immediate>' and friends) */
+    isRealFile(path) {
+      if (!path || path[0] === '<') return false;
+      if (this.docByPath(path)) return true;
+      try { return this.vfs.exists(path); } catch (e) { return false; }
+    }
     gotoPos(pos) {
       if (!pos) return;
       if (pos.file && !this.docByPath(pos.file)) {
@@ -15429,7 +15475,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       const d = this.runner.display;
       d.screen(0, undefined, 0, 0, true);
       d.color(15, 1); d.cls(0);
-      const center = (row, text, fg) => { d.color(fg, 1); d.locate(row, Math.max(1, Math.floor((80 - text.length) / 2) + 1)); d.printString(RC.toCP437(text)); };
+      const center = (row, text, fg) => { d.color(fg, 1); d.locate(row, Math.max(1, Math.floor((80 - text.length) / 2) + 1)); d.printString(RC.toCP437(text), true); }; // raw: show glyphs like • (code 7)
       center(9, '╔══════════════════════════════════════════════╗', 11);
       center(10, '║            B   A   Y   S   I   K             ║', 11);
       center(11, '╚══════════════════════════════════════════════╝', 11);
@@ -15450,7 +15496,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         if (!this.programHasKeys() && !(this.console && this.console.active)) return;
         e.preventDefault();
         const t = (e.clipboardData || window.clipboardData).getData('text');
-        if (this.console && this.console.active && !this.runner.isActive()) this.console.paste(t);
+        const st = this.runner.state;
+        if (this.console && this.console.active && st !== 'running' && st !== 'waiting') this.console.paste(t);
         else this.runner.keyboard.type(t);
         this.runner.kick();
       });

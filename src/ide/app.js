@@ -457,7 +457,7 @@
       editor.on('bpsShifted', (map) => { this.breakpoints.set(d.path, new Map(map)); this.saveBreakpoints(); });
       editor.on('find', (rep) => this.openFind(rep));
       editor.on('gotoLine', () => this.gotoLineDialog());
-      editor.on('help', (line, col) => { const w = B.wordAt(line, col); RC.Help.open(this, w ? w.word : null); });
+      editor.on('help', (line, col) => { const w = B.wordAt(line, col); RC.Help.open(this, w && w.kind === 'kw' ? w.word : null); });
       editor.on('hover', (pos, x, y) => this.callout.showFor(d, pos, x, y));
       editor.on('hoverOut', () => this.callout.scheduleHide(450));
       editor.on('context', (pos, e) => this.editorContextMenu(d, pos, e));
@@ -876,7 +876,8 @@
       if (!names.length) { RC.UI.toast('That folder is empty', 'err'); return; }
       const total = names.reduce((n, k) => n + files[k].length, 0);
       if (total > 2 * 1024 * 1024) { RC.UI.toast('Folder is too large to share as a link (2 MB max). Use Download Project instead.', 'err', 6000); return; }
-      const main = this.mainFor(dir) || (this.active && this.active.path.toUpperCase().startsWith(dir.toUpperCase()) ? this.active.path : null);
+      const inDir = (path) => path.toUpperCase().startsWith(dir.toUpperCase().replace(/\\$/, '') + '\\');
+      const main = this.mainFor(dir) || (this.active && inDir(this.active.path) ? this.active.path : null);
       const meta = { name: dir.replace(/^.*\\/, '') || 'PROJECT', main: main ? main.slice(dir.length + 1).replace(/\\/g, '/') : null, lang: 'basic' };
       const code = await RC.Share.pack(meta, files);
       const link = location.href.replace(/#.*$/, '') + '#share=' + code;
@@ -926,7 +927,8 @@
       dir = dir || (this.active ? this.active.path.replace(/\\[^\\]*$/, '') : 'C:\\');
       const files = this.collectFolder(dir);
       const zip = RC.Zip.create(files);
-      RC.UI.download((dir.replace(/^.*\\/, '') || 'DISK') + '.zip', zip, 'application/zip');
+      const base = dir.replace(/^[A-Za-z]:\\?$/, '').replace(/^.*\\/, '');
+      RC.UI.download((base || 'DISK') + '.zip', zip, 'application/zip');
     }
 
     // ---- mounting a real folder ---------------------------------------------------------------------------
@@ -963,11 +965,7 @@
         cancelValue: 'no', dismissable: false,
       });
       if (r === 'always') { const d = this.vfs.drives[path[0].toUpperCase()]; if (d) d.writable = true; this.renderExplorer(); return true; }
-      if (r === 'once') {
-        const d = this.vfs.drives[path[0].toUpperCase()];
-        if (d) { d.writable = true; setTimeout(() => { if (d.writable === true) d.writable = 'ask'; }, 0); }
-        return true;
-      }
+      if (r === 'once') return true; // only this OPEN (and its CLOSE) may write; the drive keeps asking
       return false;
     }
 
@@ -1082,6 +1080,11 @@
       r.on('chained', (path) => { this.setStatus('Running ' + path); this.updateUI(); });
       r.on('animate', () => this.animateTick());
       r.on('immediateDone', () => { this.updateUI(); if (this.console && this.console.active) this.console.ok(); });
+      r.on('immediateError', (info) => {
+        this.updateUI();
+        if (this.console && this.console.active) this.console.onError(info);
+        else this.panels.log('Error ' + info.code + ': ' + info.message, 'err');
+      });
     }
     onPaused(why) {
       const vm = this.runner.vm;
@@ -1139,7 +1142,7 @@
       else this.setStatus('Program ended — press F5 to run again' + (this.isMobile() ? '' : ', F4 to view output'));
       this.panels.refreshAll();
       this.updateUI();
-      if (this.console && this.console.active && info.reason !== 'immediate') this.console.ok();
+      if (this.console && this.console.active && info.reason !== 'immediate' && !this.runner.restarting) this.console.ok();
       if (info.reason === 'system' && this.console && this.console.active) this.console.toggle(false);
     }
     onRuntimeError(info, vm) {
@@ -1150,8 +1153,8 @@
       this.panels.log(`Runtime error ${info.code}: ${msg}` + (info.pos ? `  (${(info.pos.file || '').replace(/^.*\\/, '')}:${info.pos.line + 1})` : ''), 'err', info.pos);
       const hint = RC.Help.errorHint(info.code);
       if (hint) this.panels.log('Hint: ' + hint, 'note');
-      if (info.pos && info.pos.file) {
-        const d = this.openFile(info.pos.file);
+      if (info.pos && info.pos.file && this.isRealFile(info.pos.file)) {
+        const d = this.openFile(info.pos.file, this.console && this.console.active ? { noFocus: true } : undefined);
         if (d) d.editor.setError(info.pos.line);
       }
       this.panels.setProblems([{ kind: 'Runtime error ' + info.code, message: msg, pos: info.pos }]);
@@ -1167,10 +1170,12 @@
       this.setStatus('Syntax: ' + e.message + where, true);
       this.panels.setProblems([{ kind: 'Syntax error', message: e.message, pos }]);
       this.panels.log('Syntax error: ' + e.message + where, 'err', pos);
-      if (pos && pos.file) {
-        const d = this.openFile(pos.file);
-        if (d) { d.editor.setError(pos.line); d.editor.setCursor(pos.line, pos.col || 0); }
+      const inConsole = this.console && this.console.active;
+      if (pos && pos.file && this.isRealFile(pos.file)) {
+        const d = this.openFile(pos.file, inConsole ? { noFocus: true } : undefined);
+        if (d) { d.editor.setError(pos.line); if (!inConsole) d.editor.setCursor(pos.line, pos.col || 0); }
       }
+      if (inConsole) setTimeout(() => this.el('screen').focus(), 0);
       if (!(this.console && this.console.active)) this.panels.show('problems');
       if (this.console && this.console.active) this.console.onCompileError(e);
       else RC.UI.toast(h('div', h('b', 'Syntax error: '), e.message + where), 'err', 6000);
@@ -1386,6 +1391,12 @@
       const app = this.el('app');
       app.classList.toggle('explorer-open', open === undefined ? !app.classList.contains('explorer-open') : open);
     }
+    /** True if path is an open document or an existing file (not '<immediate>' and friends) */
+    isRealFile(path) {
+      if (!path || path[0] === '<') return false;
+      if (this.docByPath(path)) return true;
+      try { return this.vfs.exists(path); } catch (e) { return false; }
+    }
     gotoPos(pos) {
       if (!pos) return;
       if (pos.file && !this.docByPath(pos.file)) {
@@ -1468,7 +1479,7 @@
       const d = this.runner.display;
       d.screen(0, undefined, 0, 0, true);
       d.color(15, 1); d.cls(0);
-      const center = (row, text, fg) => { d.color(fg, 1); d.locate(row, Math.max(1, Math.floor((80 - text.length) / 2) + 1)); d.printString(RC.toCP437(text)); };
+      const center = (row, text, fg) => { d.color(fg, 1); d.locate(row, Math.max(1, Math.floor((80 - text.length) / 2) + 1)); d.printString(RC.toCP437(text), true); }; // raw: show glyphs like • (code 7)
       center(9, '╔══════════════════════════════════════════════╗', 11);
       center(10, '║            B   A   Y   S   I   K             ║', 11);
       center(11, '╚══════════════════════════════════════════════╝', 11);
@@ -1489,7 +1500,8 @@
         if (!this.programHasKeys() && !(this.console && this.console.active)) return;
         e.preventDefault();
         const t = (e.clipboardData || window.clipboardData).getData('text');
-        if (this.console && this.console.active && !this.runner.isActive()) this.console.paste(t);
+        const st = this.runner.state;
+        if (this.console && this.console.active && st !== 'running' && st !== 'waiting') this.console.paste(t);
         else this.runner.keyboard.type(t);
         this.runner.kick();
       });

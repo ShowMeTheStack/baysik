@@ -16,7 +16,7 @@
     ['GOTO', 'Program flow', 'GOTO {linenumber | label}', 'Jumps to another line. Labels are names followed by a colon, e.g. Again:', 'Again:\nINPUT "Again (Y/N)"; a$\nIF a$ = "Y" THEN GOTO Again'],
     ['GOSUB', 'Program flow', 'GOSUB {linenumber | label}\n...\nRETURN', 'Calls a subroutine within the same module; RETURN comes back to the statement after the GOSUB.', 'GOSUB DrawBox\nEND\nDrawBox:\n    LINE (0, 0)-(100, 50), 14, B\n    RETURN'],
     ['RETURN', 'Program flow', 'RETURN [{linenumber | label}]', 'Returns from a GOSUB (or an ON TIMER/KEY event handler). With a target, returns to that line instead.', ''],
-    ['ON', 'Program flow', 'ON n GOTO line1, line2...\nON n GOSUB line1, line2...\nON ERROR GOTO line\nON {TIMER(s) | KEY(n) | PLAY(n) | STRIG(n) | PEN} GOSUB line', 'Computed jumps (n = 1 picks the first target) and event/error trapping.', 'ON choice GOSUB Easy, Medium, Hard'],
+    ['ON', 'Program flow', 'ON n GOTO line1, line2...\nON n GOSUB line1, line2...\nON ERROR GOTO line\nON {TIMER(s) | KEY(n) | PLAY(n) | STRIG(n) | PEN} GOSUB line', 'Computed jumps (n = 1 picks the first target) and event/error trapping.', 'INPUT "Level 1-3"; choice\nON choice GOSUB Easy, Medium, Hard\nEND\nEasy: PRINT "Easy mode": RETURN\nMedium: PRINT "Medium mode": RETURN\nHard: PRINT "Hard mode": RETURN'],
     ['EXIT', 'Program flow', 'EXIT {FOR | DO | SUB | FUNCTION | DEF}', 'Leaves a loop or procedure immediately.', ''],
     ['END', 'Program flow', 'END\nEND {IF | SELECT | SUB | FUNCTION | DEF | TYPE}', 'END alone stops the program and closes files. Other forms close a block.', ''],
     ['STOP', 'Program flow', 'STOP', 'Pauses the program in the debugger, like a breakpoint written in code. Press F5 to continue (CONT in the GW-BASIC console).', ''],
@@ -34,7 +34,7 @@
     ['CHAIN', 'Procedures', 'CHAIN filespec$ [, line]', 'Runs another BASIC program, keeping open files and passing COMMON variables.', 'CHAIN "LEVEL2"'],
     ['RUN', 'Procedures', 'RUN [linenumber | filespec$]', 'Restarts the program (clearing variables), or loads and runs another program file.', ''],
     // ---- Variables
-    ['DIM', 'Variables & types', 'DIM [SHARED] variable[(subscripts)] [AS type] [, ...]', 'Declares variables and arrays. Subscripts can be "upper" or "lower TO upper". Types: INTEGER, LONG, SINGLE, DOUBLE, STRING, STRING * n, or a TYPE.', 'DIM scores(1 TO 10) AS INTEGER\nDIM grid(20, 20)\nDIM name AS STRING * 12'],
+    ['DIM', 'Variables & types', 'DIM [SHARED] variable[(subscripts)] [AS type] [, ...]', 'Declares variables and arrays. Subscripts can be "upper" or "lower TO upper". Types: INTEGER, LONG, SINGLE, DOUBLE, STRING, STRING * n, or a TYPE.', 'DIM scores(1 TO 10) AS INTEGER\nDIM grid(20, 20)\nDIM nm AS STRING * 12'],
     ['REDIM', 'Variables & types', 'REDIM [PRESERVE] [SHARED] array(subscripts) [AS type]', 'Changes the size of a dynamic array. Without PRESERVE the contents are cleared.', ''],
     ['ERASE', 'Variables & types', 'ERASE array [, array]', 'Clears a static array or frees a dynamic one.', ''],
     ['CONST', 'Variables & types', 'CONST name = expression [, ...]', 'Defines a named constant that cannot change.', 'CONST PI = 3.14159, TITLE$ = "My Game"'],

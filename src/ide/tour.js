@@ -39,11 +39,11 @@
       steps: [
         { title: 'Your first program', text: 'Let\'s write a program together. I\'ll create a new empty file called FIRST.BAS for you.', action: (app) => scratch(app, 'FIRST.BAS', '') },
         { sel: '#editorArea', title: 'Say hello', text: `Click in the editor and type:<br>${code('PRINT "Hello, world!"')}<br>(the keyword turns uppercase when you leave the line)`, wait: (app) => /PRINT\s*"[^"]+"/i.test(ed(app) ? ed(app).getValue() : ''), waitText: 'Waiting for a PRINT line…' },
-        { sel: '#tbRun', title: 'Run it!', text: 'Now press <kbd>F5</kbd> or click Run.', wait: (app) => app.runner.vm && app.runner.vm.prog && app.runner.vm.statementsExecuted > 0 && app.runner.state === 'ended', waitText: 'Waiting for the program to run…' },
+        { sel: '#tbRun', title: 'Run it!', text: 'Now press <kbd>F5</kbd> or click Run.', wait: (app, c) => (app.runCount || 0) > c.runs && app.runner.state === 'ended', waitText: 'Waiting for the program to run…' },
         { sel: '#screenArea', title: 'It works!', text: 'There\'s your message on the output screen. Every program starts like this.' },
         { sel: '#editorArea', title: 'Ask a question', text: `Add two more lines:<br>${code('INPUT "What is your name"; n$')}<br>${code('PRINT "Hi, "; n$')}<br>Variables ending with <b>$</b> hold text.`, wait: (app) => /INPUT[^\n]*;\s*n\$/i.test(ed(app) ? ed(app).getValue() : ''), waitText: 'Waiting for an INPUT line…' },
-        { sel: '#screenArea', title: 'Run and answer', text: 'Run again (F5). Click the screen if needed, type your name and press Enter.', wait: (app) => app.runner.state === 'ended' && /INPUT/i.test(ed(app) ? ed(app).getValue() : ''), waitText: 'Waiting for the program to finish…' },
-        { sel: '#editorArea', title: 'Loops', text: `Computers love repeating. Add:<br>${code('FOR i = 1 TO 10')}<br>${code('    PRINT i; "Hi!"')}<br>${code('NEXT i')}<br>then run it.`, wait: (app) => /NEXT/i.test(ed(app) ? ed(app).getValue() : '') && app.runner.state === 'ended', waitText: 'Waiting for a FOR…NEXT loop to run…' },
+        { sel: '#screenArea', title: 'Run and answer', text: 'Run again (F5). Click the screen if needed, type your name and press Enter.', wait: (app, c) => (app.runCount || 0) > c.runs && app.runner.state === 'ended' && /INPUT/i.test(ed(app) ? ed(app).getValue() : ''), waitText: 'Waiting for the program to finish…' },
+        { sel: '#editorArea', title: 'Loops', text: `Computers love repeating. Add:<br>${code('FOR i = 1 TO 10')}<br>${code('    PRINT i; "Hi!"')}<br>${code('NEXT i')}<br>then run it.`, wait: (app, c) => /NEXT/i.test(ed(app) ? ed(app).getValue() : '') && (app.runCount || 0) > c.runs && app.runner.state === 'ended', waitText: 'Waiting for a FOR…NEXT loop to run…' },
         { title: 'You are a programmer!', text: 'Next ideas: change the numbers, add COLOR 14 before PRINT, or try the <b>Graphics & Sound</b> tour. The examples are full of ideas to borrow.' },
       ],
     },
@@ -51,7 +51,7 @@
       title: 'Debugging',
       steps: [
         { title: 'Become a bug detective', text: 'The debugger lets you freeze a running program and look inside. I\'ll open FACTORL.BAS, which uses recursion (a FUNCTION calling itself).', action: (app) => { app.openFile('C:\\SAMPLES\\FACTORL.BAS'); } },
-        { sel: '.ed-gutter', title: 'Set a breakpoint', text: 'Find the line <code>Factorial# = 1</code> (marked with &lt;--). Click in the gutter left of its line number — a red dot appears.', wait: (app) => { const d = app.active; const bps = d && app.breakpoints.get(d.path); return !!(bps && [...bps.keys()].some((l) => /Factorial# = 1\b/.test(d.editor.getLine(l)))); }, waitText: 'Waiting for the breakpoint…' },
+        { sel: '.ed:not([style*="none"]) .ed-gutter', title: 'Set a breakpoint', text: 'Find the line <code>Factorial# = 1</code> (marked with &lt;--). Click in the gutter left of its line number — a red dot appears.', wait: (app) => { const d = app.active; const bps = d && app.breakpoints.get(d.path); return !!(bps && [...bps.keys()].some((l) => /Factorial# = 1\b/.test(d.editor.getLine(l)))); }, waitText: 'Waiting for the breakpoint…' },
         { sel: '#tbRun', title: 'Run to the breakpoint', text: 'Press <kbd>F5</kbd>. The program will run and stop right before that line.', wait: (app) => app.runner.state === 'paused', waitText: 'Waiting for the pause…' },
         { sel: '#bottom', title: 'The call stack', text: 'Open the <b>Call Stack</b> tab. Factorial has called itself again and again — each call is a frame with its own n%. Click a lower frame to look at it.', action: (app) => app.panels.show('stack') },
         { sel: '#bottom', title: 'Variables', text: 'The <b>Variables</b> tab shows the selected frame\'s locals and the module globals. Double-click a value to change it while the program is paused!', action: (app) => app.panels.show('vars') },
@@ -65,7 +65,7 @@
       title: 'Graphics & Sound',
       steps: [
         { title: 'Pixels and beeps', text: 'Classic PCs had several graphics modes. SCREEN picks one. Let\'s draw something.', action: (app) => scratch(app, 'DRAWING.BAS', "' Graphics demo\nSCREEN 12\nFOR r = 10 TO 200 STEP 10\n    CIRCLE (320, 240), r, r MOD 15 + 1\nNEXT\nLINE (100, 100)-(540, 380), 14, B\nPLAY \"T180 O3 L8 CEG>C\"\n") },
-        { sel: '#editorArea', title: 'Graphics statements', text: '<code>SCREEN 12</code> is 640×480 with 16 colors. <code>CIRCLE</code>, <code>LINE … B</code> (box) and <code>PLAY</code> (music) do the rest. Press <kbd>F5</kbd>.', wait: (app) => app.runner.state === 'ended' || app.runner.state === 'waiting', waitText: 'Waiting for you to run it…' },
+        { sel: '#editorArea', title: 'Graphics statements', text: '<code>SCREEN 12</code> is 640×480 with 16 colors. <code>CIRCLE</code>, <code>LINE … B</code> (box) and <code>PLAY</code> (music) do the rest. Press <kbd>F5</kbd>.', wait: (app, c) => (app.runCount || 0) > c.runs && (app.runner.state === 'ended' || app.runner.state === 'waiting'), waitText: 'Waiting for you to run it…' },
         { sel: '#screenArea', title: 'Try other modes', text: 'Change <code>SCREEN 12</code> to <code>SCREEN 13</code> (320×200, 256 colors) or <code>SCREEN 1</code> (old CGA, 4 colors) and run again. Help ▸ Language Reference ▸ Screen modes lists them all.' },
         { sel: '#tbExamples', title: 'More', text: 'MANDEL, PLASMA, SPRITES, TURTLE and MUSIC in the examples show palettes, animation, the DRAW language and songs.' },
       ],
@@ -181,11 +181,15 @@
         step.hint ? h('button.btn', { type: 'button', onclick: () => { hintEl.hidden = false; Tours.place(st); } }, 'Hint') : null, skip, back, next)].filter(Boolean));
       if (step.wait) {
         next.textContent = 'Skip step';
+        const ctx = { runs: st.app.runCount || 0 };
         st.timer = setInterval(() => {
           let ok = false;
-          try { ok = step.wait(st.app); } catch (e) { ok = false; }
+          try { ok = step.wait(st.app, ctx); } catch (e) { ok = false; }
           if (ok) {
-            clearInterval(st.timer); waitEl.textContent = '✓ Done!'; next.textContent = last ? (st.tour.finishLabel || 'Finish') : 'Next'; next.focus();
+            clearInterval(st.timer); waitEl.textContent = '✓ Done!'; next.textContent = last ? (st.tour.finishLabel || 'Finish') : 'Next';
+            // don't steal the keyboard from someone typing in the editor, the screen or an input
+            const ae = document.activeElement;
+            if (!ae || ae === document.body || pop.contains(ae)) next.focus();
             setTimeout(() => { if (Tours.active === st && st.tour.steps[st.i] === step && !last) { st.i++; Tours.show(st); } }, 900);
           }
         }, 300);
@@ -195,7 +199,8 @@
     },
     place(st) {
       const step = st.tour.steps[st.i];
-      const el = step.sel ? document.querySelector(step.sel) : null;
+      let el = step.sel ? document.querySelector(step.sel) : null;
+      if (el && el.closest('.toolbar, .menubar, .tabs')) el.scrollIntoView({ block: 'nearest', inline: 'center' });
       const pop = st.pop;
       const pw = pop.offsetWidth, ph = pop.offsetHeight;
       const W = window.innerWidth, H = window.innerHeight;

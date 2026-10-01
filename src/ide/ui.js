@@ -139,13 +139,15 @@
             return;
           }
         }
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(opts.cancelValue); }
-        else if (e.key === 'Enter' && opts.enterValue !== undefined && !(e.target instanceof HTMLTextAreaElement)) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(opts.cancelValue); return; }
+        if (e.key === 'Enter' && opts.enterValue !== undefined && !(e.target instanceof HTMLTextAreaElement)) {
           e.preventDefault(); e.stopPropagation();
           const v = typeof opts.enterValue === 'function' ? opts.enterValue() : opts.enterValue;
           if (v !== undefined) close(v);
+          return;
         }
-        e.stopPropagation();
+        // Other keys reach the focused control inside the dialog, but never the IDE/editor behind it
+        if (!box.contains(e.target)) { e.stopPropagation(); }
       };
       document.addEventListener('keydown', onKey, true);
       openModals.push(close);

@@ -477,3 +477,20 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 @media (min-width: 821px) and (max-width: 1199px) and (min-height: 481px) {
   .workspace.no-explorer .explorer { display: flex; }
 }
+
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] {
+  --bg: #15171c; --pane: #1d2027; --pane2: #171a20; --pane-head: #262a33; --pane-head-fg: #c9d1e0;
+  --text: #d7dce6; --muted: #8b93a6; --border: #2e3340; --accent: #6cb6ff; --accent-fg: #0b1220;
+  --btn: #2b303b; --btn-fg: #d7dce6; --btn-hover: #384050;
+  --menu: #1d2027; --menu-fg: #d7dce6; --menu-hot: #6cb6ff; --menu-sel: #2f3a52; --menu-sel-fg: #fff;
+  --input: #12141a;
+  --ed-bg: #16181d; --ed-fg: #d4d4d4; --ed-gutter: #16181d; --ed-gutter-fg: #5b6272; --ed-caret: #6cb6ff;
+  --ed-sel: rgba(108, 182, 255, .28); --ed-cur: rgba(255,255,255,.04);
+  --syn-kw: #c792ea; --syn-fn: #82aaff; --syn-str: #c3e88d; --syn-num: #f78c6c; --syn-com: #6a7a8c; --syn-lbl: #ffcb6b; --syn-op: #89ddff; --syn-meta: #ff5370;
+  --exec: rgba(255, 203, 107, .22); --exec-border: #ffcb6b; --frame: rgba(130, 170, 255, .14);
+  --bp: #f14c4c; --err: #f14c4c; --ok: #4ec98a; --warn: #ffcb6b;
+  --radius: 6px;
+  color-scheme: dark;
+}
+}

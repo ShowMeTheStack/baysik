@@ -53,9 +53,10 @@
       level.value = state.level;
       let closeFn = () => {};
       const opened = new Set(RC.UI.storage.get('libOpened', []));
+      nav.appendChild(search);
       const renderNav = () => {
-        nav.innerHTML = '';
-        nav.appendChild(search);
+        // rebuild everything except the search box, so it keeps focus while typing
+        while (nav.lastChild && nav.lastChild !== search) nav.removeChild(nav.lastChild);
         const all = h('div', { 'data-key': '*', class: state.cat === '*' ? 'sel' : '' }, `All programs (${L.items.length})`);
         all.addEventListener('click', () => { state.cat = '*'; render(); });
         nav.appendChild(all);
@@ -81,7 +82,7 @@
         const catName = state.cat === '*' ? 'All programs' : (L.categories.find((c) => c.id === state.cat) || {}).name;
         main.appendChild(h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center', margin: '6px 0 10px' } }, h('h2', { style: { margin: 0, flex: 1 } }, catName), h('span.muted', list.length + ' shown'), level));
         const grid = h('div.gallery');
-        for (const it of list.slice(0, 400)) {
+        for (const it of list) {
           const card = h('button.card', { type: 'button', title: it.path },
             h('span.t', (opened.has(it.path) ? '✓ ' : '') + it.title),
             h('span.d', it.summary),
