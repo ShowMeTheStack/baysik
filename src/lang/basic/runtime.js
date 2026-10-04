@@ -583,16 +583,13 @@
         if (this.dispatchEvents()) return false;
       }
       const st = this.prog.stmts[idx];
-      if (this.recordHistory && !st.noStep) {
-        const h = this.history;
-        if (h.length >= this.historyMax * 2) h.splice(0, h.length - this.historyMax);
-        h.push(idx);
-      }
-      if (this.tron && st.lineNo !== null && (st.lineStart || st.lineNo !== this.lastTron)) {
-        this.lastTron = st.lineNo;
-        this.printText('[' + st.lineNo + ']');
-      }
-      if (this.traceHook) this.traceHook(idx);
+      const record = () => {
+        if (this.recordHistory && !st.noStep) {
+          const h = this.history;
+          if (h.length >= this.historyMax * 2) h.splice(0, h.length - this.historyMax);
+          h.push(idx);
+        }
+      };
       if (this.skipBreak) { this.skipBreak = false; }
       else if (!st.noStep) {
         let brk = null;
@@ -614,6 +611,7 @@
         }
         if (brk) {
           this.pc--; // re-execute STMT on resume
+          this.statementsExecuted--;
           this.stepMode = null;
           this.state = 'paused';
           this.pauseReason = brk;
@@ -624,13 +622,23 @@
         }
       }
       if (this.throttle > 0) {
-        if (--this.stmtBudget <= 0) {
+        // 6: each statement spends one unit of budget; with none left, yield and retry this STMT later
+        if (this.stmtBudget <= 0) {
           this.pc--;
+          this.statementsExecuted--;
           this.skipBreak = true;
           this.throttleYield = true;
           return true;
         }
+        this.stmtBudget--;
       }
+      // the statement really executes now: trace it and remember it
+      if (this.tron && st.lineNo !== null && (st.lineStart || st.lineNo !== this.lastTron)) {
+        this.lastTron = st.lineNo;
+        this.printText('[' + st.lineNo + ']');
+      }
+      if (this.traceHook) this.traceHook(idx);
+      record();
       return false;
     }
     safeEval(fn) {

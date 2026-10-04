@@ -503,6 +503,7 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
   color-scheme: dark;
 }
 }
+.vrow .vv { white-space: pre; }
 
 </style>
 </head>
@@ -1164,7 +1165,12 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
       while (this.isOp('.') && this.peek(1).t === 'id') {
         this.p++;
         const f = this.next();
-        node = { k: 'member', obj: node, field: f.v, pos: this.pos(f) };
+        // the lexer keeps dotted names together ("home.y"): split them into a member chain
+        const parts = f.v.split('.');
+        for (let pi = 0; pi < parts.length; pi++) {
+          if (!parts[pi]) this.fail('Expected: field name', f);
+          node = { k: 'member', obj: node, field: parts[pi], pos: this.pos(f) };
+        }
         if (this.isOp('(')) this.fail('Expected: end-of-statement');
       }
       return node;
@@ -4851,16 +4857,13 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         if (this.dispatchEvents()) return false;
       }
       const st = this.prog.stmts[idx];
-      if (this.recordHistory && !st.noStep) {
-        const h = this.history;
-        if (h.length >= this.historyMax * 2) h.splice(0, h.length - this.historyMax);
-        h.push(idx);
-      }
-      if (this.tron && st.lineNo !== null && (st.lineStart || st.lineNo !== this.lastTron)) {
-        this.lastTron = st.lineNo;
-        this.printText('[' + st.lineNo + ']');
-      }
-      if (this.traceHook) this.traceHook(idx);
+      const record = () => {
+        if (this.recordHistory && !st.noStep) {
+          const h = this.history;
+          if (h.length >= this.historyMax * 2) h.splice(0, h.length - this.historyMax);
+          h.push(idx);
+        }
+      };
       if (this.skipBreak) { this.skipBreak = false; }
       else if (!st.noStep) {
         let brk = null;
@@ -4882,6 +4885,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         }
         if (brk) {
           this.pc--; // re-execute STMT on resume
+          this.statementsExecuted--;
           this.stepMode = null;
           this.state = 'paused';
           this.pauseReason = brk;
@@ -4892,13 +4896,23 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
         }
       }
       if (this.throttle > 0) {
-        if (--this.stmtBudget <= 0) {
+        // 6: each statement spends one unit of budget; with none left, yield and retry this STMT later
+        if (this.stmtBudget <= 0) {
           this.pc--;
+          this.statementsExecuted--;
           this.skipBreak = true;
           this.throttleYield = true;
           return true;
         }
+        this.stmtBudget--;
       }
+      // the statement really executes now: trace it and remember it
+      if (this.tron && st.lineNo !== null && (st.lineStart || st.lineNo !== this.lastTron)) {
+        this.lastTron = st.lineNo;
+        this.printText('[' + st.lineNo + ']');
+      }
+      if (this.traceHook) this.traceHook(idx);
+      record();
       return false;
     }
     safeEval(fn) {
@@ -7281,6 +7295,7 @@ if (typeof globalThis !== 'undefined') globalThis.RC = RC;
     const t = entry.vtype;
     if (entry.readOnly || entry.isConst) throw new Error('constants cannot be changed');
     if (!entry.ref) throw new Error('this value cannot be changed');
+    if (entry.isArray || entry.isGroup) throw new Error('Edit individual elements instead');
     if (!t || t.code === 7 || t.code === 6) throw new Error('Edit individual elements/fields instead');
     let value;
     try {
@@ -11375,6 +11390,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       document.addEventListener('selectionchange', () => { if (document.activeElement === ta) this.updateCursor(); });
       this.gutter.addEventListener('mousedown', (e) => {
         e.preventDefault();
+        if (e.button !== 0) return; // right-click opens the context menu only
         const line = this.lineAtY(e.clientY);
         if (line >= 0 && line < this.lineCount()) this.emit('gutter', line, e);
       });
@@ -12363,7 +12379,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       st.prev.set(key, e.text);
       const open = st.expanded.has(key);
       const tw = h('span.twisty', { role: e.expandable ? 'button' : null, 'aria-label': e.expandable ? (open ? 'Collapse' : 'Expand') : null }, e.expandable ? (open ? '▾' : '▸') : '');
-      const editable = !e.readOnly && !e.isGroup && e.ref && e.vtype && e.vtype.code <= 5 && this.opts.canEdit(e);
+      const editable = !e.readOnly && !e.isGroup && !e.isArray && e.ref && e.vtype && e.vtype.code <= 5 && this.opts.canEdit(e);
       const nameCell = h('div.vn', { style: { paddingLeft: (6 + depth * 14) + 'px' } }, tw, h('span', e.name),
         e.param ? h('span.vbadge', 'param') : null, e.isRet ? h('span.vbadge', 'result') : null, e.isConst ? h('span.vbadge', 'const') : null);
       const valText = e.isGroup ? '' : e.text;
@@ -12444,7 +12460,12 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       this.anchor = null; // {doc, line, col}
       this.state = { expanded: new Set(), pages: new Map(), prev: new Map() };
       document.addEventListener('pointerdown', (e) => { if (this.el && !this.el.contains(e.target)) this.hide(); }, true);
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.el) { this.hide(); } }, true);
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' || !this.el) return;
+        const ae = document.activeElement;
+        if (ae && ae.tagName === 'INPUT' && this.el.contains(ae)) return; // the value editor cancels itself
+        this.hide();
+      }, true);
     }
     isOpen() { return !!this.el; }
 
@@ -12865,7 +12886,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         const go = () => pr.pos && this.app.gotoPos(pr.pos);
         row.addEventListener('click', () => { body.querySelectorAll('.list-row').forEach((r) => r.classList.remove('sel')); row.classList.add('sel'); });
         row.addEventListener('dblclick', go);
-        row.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
         body.appendChild(row);
       }
     }
@@ -15068,6 +15089,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
 
     bindRunner() {
       const r = this.runner;
+      r.on('vm', () => this.syncWatchpoints());
       r.on('state', (st) => { if (st !== 'paused' && st !== 'error') this.callout.hide(); this.updateUI(); });
       r.on('pause', (why) => this.onPaused(why));
       r.on('end', (info) => this.onEnded(info));
@@ -15210,9 +15232,10 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         }
         if (vm && (vm.state === 'running' || vm.state === 'waiting')) { this.panels.log('The program is running — pause it first (Ctrl+Break).', 'err'); return; }
         // Not running: run asynchronously against the last program's variables
-        if (isExpr && vm) {
+        if (isExpr) {
+          const v2 = r.ensureIdleVm();
           try {
-            const res = B.Debug.evaluate(vm, t.replace(/^\?\s*/, ''), 0);
+            const res = B.Debug.evaluate(v2, t.replace(/^\?\s*/, ''), 0);
             this.panels.log(B.Debug.fmtValue(res.value, res.type));
             return;
           } catch (e) { /* fall back to statement mode */ }

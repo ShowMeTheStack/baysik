@@ -494,3 +494,4 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
   color-scheme: dark;
 }
 }
+.vrow .vv { white-space: pre; }

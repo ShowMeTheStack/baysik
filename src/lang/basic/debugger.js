@@ -351,6 +351,7 @@
     const t = entry.vtype;
     if (entry.readOnly || entry.isConst) throw new Error('constants cannot be changed');
     if (!entry.ref) throw new Error('this value cannot be changed');
+    if (entry.isArray || entry.isGroup) throw new Error('Edit individual elements instead');
     if (!t || t.code === 7 || t.code === 6) throw new Error('Edit individual elements/fields instead');
     let value;
     try {

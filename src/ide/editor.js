@@ -63,6 +63,7 @@
       document.addEventListener('selectionchange', () => { if (document.activeElement === ta) this.updateCursor(); });
       this.gutter.addEventListener('mousedown', (e) => {
         e.preventDefault();
+        if (e.button !== 0) return; // right-click opens the context menu only
         const line = this.lineAtY(e.clientY);
         if (line >= 0 && line < this.lineCount()) this.emit('gutter', line, e);
       });

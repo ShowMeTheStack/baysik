@@ -13,7 +13,12 @@
       this.anchor = null; // {doc, line, col}
       this.state = { expanded: new Set(), pages: new Map(), prev: new Map() };
       document.addEventListener('pointerdown', (e) => { if (this.el && !this.el.contains(e.target)) this.hide(); }, true);
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.el) { this.hide(); } }, true);
+      document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' || !this.el) return;
+        const ae = document.activeElement;
+        if (ae && ae.tagName === 'INPUT' && this.el.contains(ae)) return; // the value editor cancels itself
+        this.hide();
+      }, true);
     }
     isOpen() { return !!this.el; }
 

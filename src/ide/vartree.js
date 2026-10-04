@@ -32,7 +32,7 @@
       st.prev.set(key, e.text);
       const open = st.expanded.has(key);
       const tw = h('span.twisty', { role: e.expandable ? 'button' : null, 'aria-label': e.expandable ? (open ? 'Collapse' : 'Expand') : null }, e.expandable ? (open ? '▾' : '▸') : '');
-      const editable = !e.readOnly && !e.isGroup && e.ref && e.vtype && e.vtype.code <= 5 && this.opts.canEdit(e);
+      const editable = !e.readOnly && !e.isGroup && !e.isArray && e.ref && e.vtype && e.vtype.code <= 5 && this.opts.canEdit(e);
       const nameCell = h('div.vn', { style: { paddingLeft: (6 + depth * 14) + 'px' } }, tw, h('span', e.name),
         e.param ? h('span.vbadge', 'param') : null, e.isRet ? h('span.vbadge', 'result') : null, e.isConst ? h('span.vbadge', 'const') : null);
       const valText = e.isGroup ? '' : e.text;

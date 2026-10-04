@@ -1072,6 +1072,7 @@
 
     bindRunner() {
       const r = this.runner;
+      r.on('vm', () => this.syncWatchpoints());
       r.on('state', (st) => { if (st !== 'paused' && st !== 'error') this.callout.hide(); this.updateUI(); });
       r.on('pause', (why) => this.onPaused(why));
       r.on('end', (info) => this.onEnded(info));
@@ -1214,9 +1215,10 @@
         }
         if (vm && (vm.state === 'running' || vm.state === 'waiting')) { this.panels.log('The program is running — pause it first (Ctrl+Break).', 'err'); return; }
         // Not running: run asynchronously against the last program's variables
-        if (isExpr && vm) {
+        if (isExpr) {
+          const v2 = r.ensureIdleVm();
           try {
-            const res = B.Debug.evaluate(vm, t.replace(/^\?\s*/, ''), 0);
+            const res = B.Debug.evaluate(v2, t.replace(/^\?\s*/, ''), 0);
             this.panels.log(B.Debug.fmtValue(res.value, res.type));
             return;
           } catch (e) { /* fall back to statement mode */ }

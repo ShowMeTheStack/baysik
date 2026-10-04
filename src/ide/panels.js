@@ -332,7 +332,7 @@
         const go = () => pr.pos && this.app.gotoPos(pr.pos);
         row.addEventListener('click', () => { body.querySelectorAll('.list-row').forEach((r) => r.classList.remove('sel')); row.classList.add('sel'); });
         row.addEventListener('dblclick', go);
-        row.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+        row.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
         body.appendChild(row);
       }
     }

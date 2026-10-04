@@ -221,7 +221,12 @@
       while (this.isOp('.') && this.peek(1).t === 'id') {
         this.p++;
         const f = this.next();
-        node = { k: 'member', obj: node, field: f.v, pos: this.pos(f) };
+        // the lexer keeps dotted names together ("home.y"): split them into a member chain
+        const parts = f.v.split('.');
+        for (let pi = 0; pi < parts.length; pi++) {
+          if (!parts[pi]) this.fail('Expected: field name', f);
+          node = { k: 'member', obj: node, field: parts[pi], pos: this.pos(f) };
+        }
         if (this.isOp('(')) this.fail('Expected: end-of-statement');
       }
       return node;
