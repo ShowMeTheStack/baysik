@@ -39,7 +39,7 @@
         let cur = parts[0];
         for (let i = 1; i < parts.length - 1; i++) { cur += '\\' + parts[i]; if (!vfs.exists(cur)) vfs.mkdir(cur); }
         const isSample = target.startsWith('C:\\SAMPLES\\');
-        if (!vfs.exists(target) || force || (upgrade && isSample)) {
+        if (!vfs.exists(target) || ((force || upgrade) && isSample)) {
           vfs.writeFile(target, RC.strToBytes(RC.toCP437(text.replace(/\r?\n/g, '\r\n'))), { trusted: true });
         }
       }

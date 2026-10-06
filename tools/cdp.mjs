@@ -51,6 +51,9 @@ export async function launch(opts = {}) {
     }
     if (msg.method === 'Runtime.consoleAPICalled') {
       logs.push({ type: msg.params.type, text: msg.params.args.map((a) => a.value !== undefined ? a.value : a.description).join(' ') });
+    } else if (msg.method === 'Page.javascriptDialogOpening') {
+      // never let "Leave site?" (beforeunload) or alert() dialogs block a headless run
+      send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {});
     } else if (msg.method === 'Runtime.exceptionThrown') {
       const d = msg.params.exceptionDetails;
       logs.push({ type: 'exception', text: (d.exception && d.exception.description) || d.text });

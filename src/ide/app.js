@@ -606,10 +606,11 @@
       if (!/^[A-Za-z]:/.test(p) && !p.startsWith('\\')) p = dir + '\\' + p;
       try {
         const r = this.vfs.resolve(p);
+        this.ensureFolder(r.display.replace(/\\[^\\]*$/, ''));
         if (!this.vfs.exists(r.display)) this.vfs.writeFile(r.display, this.encodeText("' " + r.name + '\nCLS\nPRINT "Hello!"\n'), { trusted: true });
         const d = this.openFile(r.display);
         d.editor.setCursor(2, 0);
-      } catch (e) { RC.UI.toast('Could not create file: ' + (e.message || e.code), 'err'); }
+      } catch (e) { RC.UI.toast('Could not create file: ' + this.errText(e), 'err'); }
       this.renderExplorer();
     }
     async newFolder(base) {
@@ -662,7 +663,7 @@
           if (this.vfs.exists(p) && !(await RC.UI.confirm('Replace file?', `${p} exists. Replace?`, 'Replace'))) continue;
           this.vfs.writeFile(p, buf, { trusted: true });
           last = p;
-        } catch (e) { RC.UI.toast('Could not import ' + f.name + ': ' + (e.message || e.code), 'err'); }
+        } catch (e) { RC.UI.toast('Could not import ' + f.name + ': ' + this.errText(e), 'err'); }
       }
       this.renderExplorer();
       if (last && /\.(BAS|BI|BM|TXT)$/i.test(last)) {
@@ -818,11 +819,19 @@
       if (!name || name === old) return;
       const np = p.replace(/[^\\]*$/, '') + name.trim();
       try {
+        const oldR = this.vfs.resolve(p);
         this.vfs.rename(p, np);
-        const d = this.docByPath(p);
-        if (d) { d.path = this.vfs.resolve(np).display; d.name = name.trim(); this.renderTabs(); }
+        const newR = this.vfs.resolve(np);
+        // documents open from the renamed file or anything inside a renamed folder follow it
+        const oldKey = oldR.display.toUpperCase();
+        for (const d of this.docs) {
+          const k = d.path.toUpperCase();
+          if (k === oldKey) { d.path = newR.display; d.name = newR.name; }
+          else if (k.startsWith(oldKey + '\\')) { d.path = newR.display + d.path.slice(oldR.display.length); }
+        }
+        this.renderTabs(); this.saveSession();
         this.renderExplorer();
-      } catch (e) { RC.UI.toast('Rename failed: ' + (e.message || RC.Basic.ERRORS[e.code]), 'err'); }
+      } catch (e) { RC.UI.toast('Rename failed: ' + this.errText(e), 'err'); }
     }
     duplicatePath(p) {
       let n = 2;
@@ -854,7 +863,22 @@
     }
 
     // ---- sharing / zip -------------------------------------------------------------------------------------
+    /** Human-readable message for VFS/BASIC errors */
+    errText(e) {
+      if (!e) return 'unknown error';
+      if (e.message) return e.message;
+      return RC.Basic.ERRORS[e.code] || ('error ' + e.code);
+    }
+    /** Create a folder (and its parents) if missing */
+    ensureFolder(dir) {
+      const parts = dir.split('\\');
+      let cur = parts[0];
+      for (let i = 1; i < parts.length; i++) { if (!parts[i]) continue; cur += '\\' + parts[i]; if (!this.vfs.exists(cur)) this.vfs.mkdir(cur); }
+    }
+    /** "C:" means the drive root, not the current folder of C: */
+    rootFix(dir) { return /^[A-Za-z]:$/.test(dir) ? dir + '\\' : dir; }
     collectFolder(dir) {
+      dir = this.rootFix(dir);
       this.saveAll();
       const r = this.vfs.resolve(dir);
       const files = {};
@@ -870,7 +894,7 @@
       return files;
     }
     async shareDialog(dir) {
-      dir = dir || (this.active ? this.active.path.replace(/\\[^\\]*$/, '') : this.currentDir());
+      dir = this.rootFix(dir || (this.active ? this.active.path.replace(/\\[^\\]*$/, '') : this.currentDir()));
       const files = this.collectFolder(dir);
       const names = Object.keys(files);
       if (!names.length) { RC.UI.toast('That folder is empty', 'err'); return; }
@@ -924,7 +948,7 @@
       } catch (e) { RC.UI.alert('Import failed', RC.escapeHtml(e.message || RC.Basic.ERRORS[e.code] || String(e))); }
     }
     downloadZip(dir) {
-      dir = dir || (this.active ? this.active.path.replace(/\\[^\\]*$/, '') : 'C:\\');
+      dir = this.rootFix(dir || (this.active ? this.active.path.replace(/\\[^\\]*$/, '') : 'C:\\'));
       const files = this.collectFolder(dir);
       const zip = RC.Zip.create(files);
       const base = dir.replace(/^[A-Za-z]:\\?$/, '').replace(/^.*\\/, '');
