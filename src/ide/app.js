@@ -84,6 +84,8 @@
         if (this.docs.some((d) => d.dirty && (this.isProtected(d.path) || !this.settings.autosave))) { e.preventDefault(); e.returnValue = ''; }
       });
       setInterval(() => this.autosaveTick(), 4000);
+      // keep the statement counter in the status bar live while a program runs
+      setInterval(() => { const st = this.runner.state; if (st === 'running' || st === 'waiting') this.updateStatus(); }, 500);
       window.__baysikReady = true; // signal for automated tests
     }
 
@@ -397,10 +399,11 @@
       this.tb.stop.disabled = !(running || paused);
       this.tb.out.disabled = !paused;
       const labels = { idle: 'Ready', running: 'Running', waiting: 'Running', paused: 'Paused', ended: 'Ended', error: 'Error', chain: 'Loading', evaldone: 'Ready' };
-      this.statePill.textContent = (this.runner.immediate ? 'Immediate ' : '') + (labels[st] || st);
+      const shown = this.compileFailed && !running && !paused ? 'error' : st;
+      this.statePill.textContent = (this.runner.immediate ? 'Immediate ' : '') + (labels[shown] || shown);
       this.el('app').classList.toggle('running', running || paused);
       this.el('app').classList.toggle('console', !!(this.console && this.console.active));
-      this.statePill.className = 'state-pill ' + (running ? 'running' : paused ? 'paused' : st === 'error' ? 'error' : '');
+      this.statePill.className = 'state-pill ' + (running ? 'running' : paused ? 'paused' : shown === 'error' ? 'error' : '');
       this.projLabel.textContent = this.active ? this.active.path : '';
       this.updateStatus();
     }
@@ -1022,6 +1025,7 @@
       for (const d of this.docs) d.editor.setError(null);
       this.selFrame = null;
       try {
+        this.compileFailed = false;
         this.runner.start(path, text, opts);
         this.panels.setProblems([]);
         this.setStatus('Running ' + path.replace(/^.*\\/, '') + ' — Ctrl+Break to pause');
@@ -1190,6 +1194,7 @@
       this.updateUI();
     }
     showCompileError(e) {
+      this.compileFailed = true;
       const pos = e.pos;
       const where = pos ? ` (${(pos.file || '').replace(/^.*\\/, '')}:${pos.line + 1})` : '';
       this.setStatus('Syntax: ' + e.message + where, true);
