@@ -174,7 +174,9 @@
     // ---- editing helpers (undo-friendly) -------------------------------------------------------------
     insert(text) {
       this.ta.focus();
-      if (!document.execCommand('insertText', false, text)) {
+      // execCommand keeps native undo but is very slow for big blocks; large edits use setRangeText
+      const big = text.length > 20000 || (this.ta.selectionEnd - this.ta.selectionStart) > 20000;
+      if (big || !document.execCommand('insertText', false, text)) {
         const ta = this.ta;
         const s = ta.selectionStart, en = ta.selectionEnd;
         ta.setRangeText(text, s, en, 'end');

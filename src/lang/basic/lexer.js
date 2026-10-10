@@ -137,8 +137,8 @@
           const kw = up + sfx;
           if (kw === 'REM') {
             const text = s.slice(i).replace(/^ /, '');
+            i = n; // the comment token spans to the end of the line
             tok('rem', text, st, { meta: parseMeta(text), isRem: true });
-            i = n;
             break;
           }
           tok('kw', kw, st);

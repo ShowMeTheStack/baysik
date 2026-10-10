@@ -199,7 +199,12 @@
     },
     place(st) {
       const step = st.tour.steps[st.i];
-      let el = step.sel ? document.querySelector(step.sel) : null;
+      // several editors exist (one per tab); spotlight the first matching element that is visible
+      let el = null;
+      if (step.sel) {
+        const all = [...document.querySelectorAll(step.sel)];
+        el = all.find((x) => { const r = x.getBoundingClientRect(); return r.width > 0 && r.height > 0; }) || all[0] || null;
+      }
       if (el && el.closest('.toolbar, .menubar, .tabs')) el.scrollIntoView({ block: 'nearest', inline: 'center' });
       const pop = st.pop;
       const pw = pop.offsetWidth, ph = pop.offsetHeight;

@@ -44,6 +44,7 @@
     try { toks = B.lexLine(text, 0, ''); } catch (e) { return text; }
     let s = text;
     for (const t of toks) {
+      if (t.t === 'rem' && t.isRem && s.slice(t.col, t.col + 3) !== 'REM') { s = s.slice(0, t.col) + 'REM' + s.slice(t.col + 3); continue; }
       if (t.t === 'kw' && !t.qmark) {
         const raw = s.slice(t.col, t.end);
         if (raw.length === t.v.length && raw !== t.v) s = s.slice(0, t.col) + t.v + s.slice(t.end);

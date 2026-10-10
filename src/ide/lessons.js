@@ -68,6 +68,7 @@
       RC.Tours.start(app, toTour(app, lesson, idx));
     },
     async browse(app) {
+      RC.Tours.stop(); // a running lesson popup would sit on top of this dialog
       const L = RC.LESSONS || [];
       const done = Lessons.done();
       const last = RC.UI.storage.get('lessonLast', null);
