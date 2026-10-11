@@ -1,0 +1,78 @@
+Baysik
+Copyright (c) 2026 Jyotiprakash Mishra <mail@jyotiprakash.org>
+https://baysik.jyotiprakash.org
+
+This notice says which terms cover which parts of this repository. If a file is
+not listed below, it is covered by section 1.
+
+
+1. SOFTWARE AND CONTENT: GNU General Public License v3.0 or later, with an
+   attribution term
+   -------------------------------------------------------------------------------
+
+   Covered: everything in this repository that is not listed in sections 2 to 4,
+   including the interpreter, the IDE, the build and test tools, the example
+   programs (samples/), the program library (library/), the tutorial lessons, the
+   built-in help text, and the built index.html.
+
+   License text: LICENSE (GNU GPL v3.0). You may use, modify and distribute this
+   work under GPL-3.0-or-later. Derived works must be distributed under the same
+   license, with their complete corresponding source code.
+
+   Additional term under section 7(b) of the GNU GPL v3.0:
+   Every copy and every derived work must preserve the following author
+   attribution, both in the source files and in the Appropriate Legal Notices
+   displayed by any work that contains or is built from this software (for an
+   interactive program or a website, in an "About" box or on a page that is
+   reachable from every screen, such as an "About" or "Credits" page):
+
+       Based on "Baysik" by Jyotiprakash Mishra
+       (https://baysik.jyotiprakash.org)
+
+   This applies equally to modified versions, translations, ports to other
+   languages, and works that include any part of the example programs, the
+   library programs or the lessons. Removing or obscuring this attribution is a
+   violation of the license, and under section 8 of the GNU GPL it terminates
+   your rights under it.
+
+   Additional term under section 7(c) of the GNU GPL v3.0:
+   Modified versions must be marked as changed from the original, in reasonable
+   ways, and must not be presented as the original Baysik.
+
+
+2. NAMES (not licensed)
+   -------------------------------------------------------------------------------
+
+   The name "Baysik" and the domain baysik.jyotiprakash.org identify the author's
+   work. Under section 7(e) of the GNU GPL v3.0, no rights are granted to use
+   them for a derived work, except to give the attribution required above.
+
+
+3. THIRD-PARTY MATERIAL
+   -------------------------------------------------------------------------------
+
+   The bitmap fonts in assets/fonts/ (and embedded in the built index.html) are
+   the IBM PC 8x8, 8x14 and 8x16 character ROM fonts, taken from the raw dumps in
+   VileR's "VGA text mode fonts" collection
+   (https://github.com/viler-int10h/vga-text-mode-fonts). They are included for
+   faithful display of the PC character set (code page 437). Bitmap fonts are
+   generally not protected by copyright as typeface designs; they are included
+   here without any claim of ownership by the author of Baysik and are not
+   covered by sections 1 and 2.
+
+
+4. TRADEMARKS
+   -------------------------------------------------------------------------------
+
+   Microsoft, MS-DOS, GW-BASIC, QBasic, QuickBASIC and Visual Basic are
+   trademarks or registered trademarks of Microsoft Corporation. IBM, IBM PC, PC
+   DOS, CGA, EGA and VGA are trademarks or registered trademarks of International
+   Business Machines Corporation. Hercules is a trademark of Hercules Computer
+   Technology. Chrome and Chromium are trademarks of Google LLC. GitHub is a
+   trademark of GitHub, Inc. All other trademarks are the property of their
+   respective owners.
+
+   These names are used only to describe compatibility and history. Baysik is an
+   independent implementation written from scratch. It is not affiliated with,
+   endorsed by, or sponsored by any of these companies, and it contains no code
+   from them.

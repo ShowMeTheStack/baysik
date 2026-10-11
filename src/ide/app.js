@@ -1501,10 +1501,20 @@
       RC.UI.alert('Keyboard Shortcuts', '<table class="kbd-table">' + rows.map(([k, v]) => `<tr><td><kbd>${k}</kbd></td><td>${v}</td></tr>`).join('') + '</table><p class="muted">While a program is running and the screen has focus, keys go to your program (except Ctrl+Break).</p>');
     }
     aboutDialog() {
-      RC.UI.alert('About Baysik', `<p><b>Baysik</b> — a BASIC IDE — — version @@VERSION@@</p>
-        <p>A browser IDE for GW-BASIC and QBasic programs: every classic screen mode (text, CGA, EGA, VGA, Hercules), PC speaker sound and music, files on a virtual disk, and a full debugger.</p>
+      RC.UI.alert('About Baysik', `<p><b>Baysik</b> version @@VERSION@@</p>
+        <p>A BASIC programming studio for the browser, compatible with GW-BASIC and QBasic programs: every PC screen mode
+        from CGA to VGA, PC speaker sound and music, files on a virtual disk, a debugger, a classic GW-BASIC console,
+        a tutorial and a library of example programs.</p>
         <p>Runs entirely in your browser; nothing is uploaded. Fonts: IBM PC ROM bitmap fonts (8×8, 8×14, 8×16).</p>
-        <p class="muted">GW-BASIC and QBasic are trademarks of Microsoft. Baysik is an independent, compatible re-implementation and contains no Microsoft code.</p>`);
+        <p>Copyright &copy; 2026 Jyotiprakash Mishra &lt;mail@jyotiprakash.org&gt;<br>
+        <a href="https://baysik.jyotiprakash.org" target="_blank" rel="noopener">baysik.jyotiprakash.org</a> &middot;
+        <a href="https://github.com/ShowMeTheStack/baysik" target="_blank" rel="noopener">source code</a></p>
+        <p>Free software under the GNU General Public License, version 3 or later, with an attribution term (section 7(b)):
+        derived works must keep the notice <i>Based on "Baysik" by Jyotiprakash Mishra (https://baysik.jyotiprakash.org)</i>.
+        There is NO WARRANTY.</p>
+        <p class="muted">Microsoft, MS-DOS, GW-BASIC, QBasic and QuickBASIC are trademarks of Microsoft Corporation; IBM, PC DOS, CGA, EGA
+        and VGA are trademarks of International Business Machines Corporation. Baysik is an independent implementation, not affiliated
+        with or endorsed by them, and contains no code from them. The PC character ROM fonts are third-party material.</p>`);
     }
     welcomeScreen() {
       const d = this.runner.display;
