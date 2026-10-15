@@ -172,6 +172,7 @@ a { color: var(--accent); }
 .pane-actions { display: inline-flex; gap: 2px; }
 .icon-btn { background: none; border: 0; padding: 3px 5px; border-radius: var(--radius); color: inherit; display: inline-grid; place-items: center; }
 .icon-btn:hover { background: rgba(127,127,127,.25); }
+.icon-btn.on { background: var(--accent); color: var(--accent-fg); box-shadow: inset 0 0 0 1px rgba(0,0,0,.4); }
 .icon-btn svg { width: 15px; height: 15px; }
 .splitter { background: var(--border); }
 .splitter.v { cursor: col-resize; }

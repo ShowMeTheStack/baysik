@@ -50,15 +50,33 @@
       this.app.renderTabs();
     }
 
-    toggle(on) {
+    /** Turn the console on or off. Returns a promise (entering may ask which program to use). */
+    async toggle(on, opts) {
+      opts = opts || {};
       if (on === undefined) on = !this.active;
       if (on === this.active) return;
-      this.active = on;
+      const app = this.app;
       const d = this.d;
       if (on) {
+        // the console works on the program that is open, so RUN and F5 run what you see;
+        // a program without line numbers is used only if you say so
+        this.prevPath = app.active ? app.active.path : null;
+        this.docPath = null;
+        const a = app.active;
+        const text = a ? a.editor.getValue() : '';
+        if (a && text.trim() !== '' && !B.GW.isNumbered(text) && opts.ask) {
+          const r = await RC.UI.modal({
+            title: 'GW-BASIC console',
+            body: RC.UI.h('div', RC.UI.h('p', a.name + ' has no line numbers.'), RC.UI.h('p', 'The console can still LIST and RUN it, but typing numbered lines and RENUM work best with a numbered program. Which program should the console use?')),
+            buttons: [{ label: 'Cancel', value: null }, { label: 'A new program', value: 'new' }, { label: 'Use ' + a.name, value: 'use', primary: true }],
+            cancelValue: null,
+          });
+          if (!r) return;
+          if (r === 'use') this.docPath = a.path;
+        } else if (a && (text.trim() === '' || B.GW.isNumbered(text))) this.docPath = a.path;
+        this.active = true;
         this.runner.stop(true);
-        this.doc();
-        this.app.activate(this.doc());
+        app.activate(this.doc());
         d.screen(0, undefined, 0, 0, true);
         d.width(80, 25);
         d.color(7, 0);
@@ -70,16 +88,22 @@
         this.print('FILES, AUTO, RENUM, EDIT n, CONT and SYSTEM (to leave) work as in GW-BASIC.');
         this.print(String(60300 - this.text().length) + ' Bytes free');
         this.ok();
-        this.app.el('screenTitle').textContent = 'GW-BASIC Console';
-        this.app.el('screen').focus();
-        this.app.setStatus('GW-BASIC console — click the screen and type. SYSTEM or View ▸ GW-BASIC Classic Console to leave.');
+        app.el('screenTitle').textContent = 'GW-BASIC Console';
+        app.el('screen').focus();
+        app.setStatus('GW-BASIC console on ' + this.doc().name + '. Click the screen and type; RUN, F2 or the Run button runs it (F1-F10 are the GW-BASIC soft keys here). SYSTEM or the console button leaves.');
       } else {
+        this.active = false;
+        this.runner.stop(true);
         d.setKeyLine(false);
         this.auto = null;
-        this.app.el('screenTitle').textContent = 'Output';
-        this.app.setStatus('Left GW-BASIC console');
+        app.el('screenTitle').textContent = 'Output';
+        // back to the normal screen (unless a program ended with SYSTEM: keep its output)
+        if (!opts.keepScreen) app.welcomeScreen();
+        const prev = this.prevPath && app.docByPath(this.prevPath);
+        if (prev && prev !== app.active) app.activate(prev);
+        app.setStatus('Left GW-BASIC console');
       }
-      this.app.updateUI();
+      app.updateUI();
     }
 
     // ---- screen output helpers -------------------------------------------------------------------

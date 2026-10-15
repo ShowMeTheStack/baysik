@@ -4,6 +4,15 @@ import { enter, focus, rows, row, cur, prog, progLines, idle, waitOk, cmd, line,
 
 const KEYLINE = '1LIST   2RUN←   3LOAD"  4SAVE"  5CONT←  6,"LPT1 7TRON←  8TROFF← 9KEY    0SCREEN';
 
+// Entering from the button or the View menu with an unnumbered program open asks which program
+// the console should use. This answers that question.
+async function answer(p, label) {
+  await p.wait("!!document.querySelector('.modal-back')", 3000);
+  p.assert.equal(await p.modalTitle(), 'GW-BASIC console');
+  await p.modalButton(label);
+}
+const BTN = '#screenActions button[aria-label="GW-BASIC classic console"], #screenActions button[aria-label="Leave the GW-BASIC console"]';
+
 export default (t) => {
   t.beforeEach(async (p) => { await p.fresh(); });
 
@@ -11,6 +20,8 @@ export default (t) => {
   t.test('View > GW-BASIC Classic Console enters the console and focuses the screen', async (p) => {
     p.assert.equal(await p.ev('RC.app.console.active'), false);
     await p.menu('View', 'GW-BASIC Classic Console');
+    await answer(p, 'A new program');
+    await p.ev("document.getElementById('screen').focus()");
     p.assert.equal(await p.ev('RC.app.console.active'), true);
     p.assert.equal(await p.ev("document.getElementById('screenTitle').textContent"), 'GW-BASIC Console');
     p.assert.equal(await p.ev("document.getElementById('app').classList.contains('console')"), true);
@@ -33,6 +44,7 @@ export default (t) => {
 
   t.test('choosing the View menu item again leaves the console', async (p) => {
     await p.menu('View', 'GW-BASIC Classic Console');
+    await answer(p, 'A new program');
     await p.menu('View', 'GW-BASIC Classic Console');
     p.assert.equal(await p.ev('RC.app.console.active'), false);
     p.assert.equal(await p.ev("document.getElementById('screenTitle').textContent"), 'Output');
@@ -40,16 +52,74 @@ export default (t) => {
   });
 
   t.test('screen header GW-BASIC button enters the console', async (p) => {
-    await p.click('#screenActions button[title="GW-BASIC classic console"]');
+    await p.click(BTN);
+    await answer(p, 'A new program');
     p.assert.equal(await p.ev('RC.app.console.active'), true);
     p.assert.match(await row(p, 0), /^Baysik GW-BASIC compatible console$/);
   });
 
   t.test('screen header GW-BASIC button pressed again leaves the console', async (p) => {
-    await p.click('#screenActions button[title="GW-BASIC classic console"]');
-    await p.click('#screenActions button[title="GW-BASIC classic console"]');
+    await p.click(BTN);
+    await answer(p, 'A new program');
+    await p.click(BTN);
     p.assert.equal(await p.ev('RC.app.console.active'), false);
     p.assert.equal(await row(p, 24), '', 'soft-key line removed');
+  });
+
+  t.test('the console button shows when the console is on', async (p) => {
+    p.assert.equal(await p.attr('#screenActions button', 'aria-pressed'), 'false');
+    await p.click(BTN);
+    await answer(p, 'A new program');
+    p.assert.equal(await p.attr('#screenActions button', 'aria-pressed'), 'true');
+    p.assert.equal(await p.attr('#screenActions button', 'title'), 'Leave the GW-BASIC console');
+    p.assert.equal(await p.ev("document.querySelector('#screenActions button').classList.contains('on')"), true);
+  });
+
+  t.test('using the open unnumbered program: the Run button runs it on the console', async (p) => {
+    p.assert.equal(await p.activePath(), 'C:\\MYPROGS\\HELLO.BAS');
+    await p.click(BTN);
+    await answer(p, 'Use HELLO.BAS');
+    p.assert.equal(await p.ev('RC.app.console.active'), true);
+    p.assert.equal(await p.activePath(), 'C:\\MYPROGS\\HELLO.BAS');
+    p.assert.match(await p.status(), /HELLO\.BAS/);
+    await p.click('#tbRun');
+    await p.waitScreen(/Hello! Welcome to BASIC/);
+  });
+
+  t.test('Cancel in the question leaves the console off', async (p) => {
+    await p.click(BTN);
+    await answer(p, 'Cancel');
+    p.assert.equal(await p.ev('RC.app.console.active'), false);
+    p.assert.equal(await p.activePath(), 'C:\\MYPROGS\\HELLO.BAS');
+  });
+
+  t.test('a numbered program is used without asking; Run and F2 run it', async (p) => {
+    await p.newFile('C:\\MYPROGS\\NUMS.BAS', '10 PRINT "NUMBERED"\n');
+    await p.click(BTN);
+    p.assert.equal(await p.modalOpen(), false);
+    p.assert.equal(await p.ev('RC.app.console.active'), true);
+    p.assert.equal(await p.activePath(), 'C:\\MYPROGS\\NUMS.BAS');
+    await p.click('#tbRun');
+    await p.waitScreen(/NUMBERED\s+Ok/);
+    await p.ev("document.getElementById('screen').focus()");
+    await p.key('F2');
+    await p.wait("(RC.app.runner.display.textLines().join('\\n').match(/NUMBERED/g) || []).length >= 2", 5000);
+  });
+
+  t.test('leaving brings back the file you had and the normal screen', async (p) => {
+    await p.click(BTN);
+    await answer(p, 'A new program');
+    p.assert.equal(await p.activePath(), 'C:\\GW\\PROGRAM.BAS');
+    await p.click(BTN);
+    p.assert.equal(await p.activePath(), 'C:\\MYPROGS\\HELLO.BAS');
+    p.assert.match(await p.screen(), /B {3}A {3}Y {3}S {3}I {3}K/);
+  });
+
+  t.test('entering from code (tours, lessons) does not ask', async (p) => {
+    await p.ev('RC.app.console.toggle(true)');
+    await p.sleep(100);
+    p.assert.equal(await p.modalOpen(), false);
+    p.assert.equal(await p.ev('RC.app.console.active'), true);
   });
 
   t.test('typing SYSTEM leaves the console and removes the KEY line', async (p) => {

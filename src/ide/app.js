@@ -188,7 +188,7 @@
         ] },
         { label: 'View', hot: 0, items: () => [
           { label: 'Output Screen Full Size', sc: 'F4', action: () => this.toggleScreenMax() },
-          { label: 'GW-BASIC Classic Console', checked: this.console && this.console.active, action: () => this.console.toggle() },
+          { label: 'GW-BASIC Classic Console', checked: this.console && this.console.active, action: () => this.console.toggle(undefined, { ask: true }) },
           { label: 'Explorer', checked: s.showExplorer, action: () => { s.showExplorer = !s.showExplorer; this.saveSettings(); this.applyLayout(); } },
           { label: 'SUBs and FUNCTIONs…', sc: 'F2', action: () => this.subsDialog() },
           { sep: true },
@@ -349,7 +349,7 @@
       const a = this.el('screenActions');
       const mk = (ic, title, fn) => h('button.icon-btn', { type: 'button', title, 'aria-label': title, onclick: fn }, icon(ic));
       a.append(
-        mk('gw', 'GW-BASIC classic console', () => this.console.toggle()),
+        this.gwBtn = mk('gw', 'GW-BASIC classic console', () => this.console.toggle(undefined, { ask: true })),
         mk('download', 'Save screenshot (PNG)', () => this.screenshot()),
         mk('max', 'Full size output (F4)', () => this.toggleScreenMax()));
     }
@@ -403,6 +403,13 @@
       this.statePill.textContent = (this.runner.immediate ? 'Immediate ' : '') + (labels[shown] || shown);
       this.el('app').classList.toggle('running', running || paused);
       this.el('app').classList.toggle('console', !!(this.console && this.console.active));
+      if (this.gwBtn) {
+        const on = !!(this.console && this.console.active);
+        this.gwBtn.classList.toggle('on', on);
+        this.gwBtn.setAttribute('aria-pressed', String(on));
+        this.gwBtn.title = on ? 'Leave the GW-BASIC console' : 'GW-BASIC classic console';
+        this.gwBtn.setAttribute('aria-label', this.gwBtn.title);
+      }
       this.statePill.className = 'state-pill ' + (running ? 'running' : paused ? 'paused' : shown === 'error' ? 'error' : '');
       this.projLabel.textContent = this.active ? this.active.path : '';
       this.updateStatus();
@@ -1172,7 +1179,7 @@
       this.panels.refreshAll();
       this.updateUI();
       if (this.console && this.console.active && info.reason !== 'immediate' && !this.runner.restarting) this.console.ok();
-      if (info.reason === 'system' && this.console && this.console.active) this.console.toggle(false);
+      if (info.reason === 'system' && this.console && this.console.active) this.console.toggle(false, { keepScreen: true });
     }
     onRuntimeError(info, vm) {
       this.clearExecMarks();
