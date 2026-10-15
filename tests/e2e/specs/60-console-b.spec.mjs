@@ -5,7 +5,20 @@ import { enter, rows, cur, prog, progLines, idle, waitOk, cmd, line, out, clear,
 const P5 = ['10 PRINT "A"', '20 PRINT "B"', '30 PRINT "C"', '40 PRINT "D"', '50 PRINT "E"'];
 
 export default (t) => {
-  t.beforeEach(async (p) => { await p.fresh(); await enter(p); });
+  // the console changes into its program's folder; these tests work from the root, so they CHDIR there first
+  t.beforeEach(async (p) => { await p.fresh(); await enter(p); await cmd(p, 'CHDIR "C:\\"'); });
+
+  t.test('the console starts in its program\'s folder: FILES lists it and SAVE writes there', async (p) => {
+    await p.fresh();
+    await p.newFile('C:\\MYPROGS\\NEXT.BAS', '10 PRINT "NEXT"\n');
+    await enter(p);
+    p.assert.equal(await p.ev('RC.app.vfs.cwd()'), 'C:\\MYPROGS');
+    await clear(p);
+    await cmd(p, 'FILES');
+    p.assert.match((await out(p, 'FILES')).join('\n'), /NEXT +\.BAS/);
+    await cmd(p, 'SAVE "COPY1"');
+    p.assert.equal(await exists(p, 'C:\\MYPROGS\\COPY1.BAS'), true);
+  });
 
   // ---- LIST ---------------------------------------------------------------------------------------------------
   t.test('LIST shows the whole program', async (p) => {

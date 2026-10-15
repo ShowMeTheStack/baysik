@@ -297,11 +297,14 @@
     }
 
     // ---- CHAIN / RUN "file" ------------------------------------------------------------------------------------
-    resolveProgramFile(name) {
+    /** Find a program by name (".BAS" is added when there is no extension) */
+    resolveProgramFile(name, baseDir) {
       const vfs = this.app.vfs;
       let n = name.trim();
-      const tries = [n];
-      if (!/\.[^\\.]*$/.test(n)) tries.push(n + '.BAS');
+      const names = [n];
+      if (!/\.[^\\.]*$/.test(n)) names.push(n + '.BAS');
+      const relative = !/^[A-Za-z]:/.test(n) && !n.startsWith('\\');
+      const tries = (relative && baseDir ? names.map((x) => baseDir + '\\' + x) : []).concat(names);
       for (const t of tries) { try { if (vfs.exists(t)) return vfs.resolve(t).display; } catch (e) { /* next */ } }
       return null;
     }
@@ -395,9 +398,10 @@
           B.err(73, st.cmd + ' is only available in the GW-BASIC console');
       }
     }
-    resolveSaveName(name) {
+    resolveSaveName(name, baseDir) {
       let n = name.trim();
       if (!/\.[^\\.]*$/.test(n)) n += '.BAS';
+      if (baseDir && !/^[A-Za-z]:/.test(n) && !n.startsWith('\\')) n = baseDir + '\\' + n;
       return this.app.vfs.resolve(n).display;
     }
 

@@ -115,6 +115,43 @@ export default (t) => {
     p.assert.match(await p.screen(), /B {3}A {3}Y {3}S {3}I {3}K/);
   });
 
+  t.test('opening another program while the console is on makes it the console program', async (p) => {
+    await p.newFile('C:\\MYPROGS\\ONE.BAS', '10 PRINT "PROGRAM ONE"\n');
+    await p.newFile('C:\\MYPROGS\\TWO.BAS', '10 PRINT "PROGRAM TWO"\n');
+    await p.click(BTN);
+    p.assert.equal(await p.ev('RC.app.console.docPath'), 'C:\\MYPROGS\\TWO.BAS');
+    await p.ev("RC.app.openFile('C:\\\\MYPROGS\\\\ONE.BAS')");
+    p.assert.equal(await p.ev('RC.app.console.docPath'), 'C:\\MYPROGS\\ONE.BAS');
+    p.assert.match(await p.screen(), /Program: ONE\.BAS\s+Ok/);
+    await p.click('#tbRun');
+    await p.waitScreen(/PROGRAM ONE\s+Ok/);
+  });
+
+  t.test('switching editor tabs switches the console program; RUN runs it', async (p) => {
+    await p.newFile('C:\\MYPROGS\\ONE.BAS', '10 PRINT "PROGRAM ONE"\n');
+    await p.newFile('C:\\MYPROGS\\TWO.BAS', '10 PRINT "PROGRAM TWO"\n');
+    await p.click(BTN);
+    await p.click('#editorTabs .tab', 'ONE.BAS');
+    await focus(p);
+    await line(p, 'RUN');
+    await p.waitScreen(/PROGRAM ONE\s+Ok/);
+    await p.click('#editorTabs .tab', 'TWO.BAS');
+    await focus(p);
+    await line(p, 'RUN');
+    await p.waitScreen(/PROGRAM TWO\s+Ok/);
+  });
+
+  t.test('LOAD switches the program and the editor to the loaded file', async (p) => {
+    await p.newFile('C:\\MYPROGS\\ONE.BAS', '10 PRINT "PROGRAM ONE"\n');
+    await p.newFile('C:\\MYPROGS\\TWO.BAS', '10 PRINT "PROGRAM TWO"\n');
+    await p.click(BTN);
+    await focus(p);
+    await line(p, 'LOAD "ONE"');
+    p.assert.equal(await p.activePath(), 'C:\\MYPROGS\\ONE.BAS');
+    await line(p, 'RUN');
+    await p.waitScreen(/PROGRAM ONE\s+Ok/);
+  });
+
   t.test('entering from code (tours, lessons) does not ask', async (p) => {
     await p.ev('RC.app.console.toggle(true)');
     await p.sleep(100);

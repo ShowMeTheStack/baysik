@@ -334,6 +334,7 @@ export default (t) => {
   });
 
   t.test('F3 types LOAD" and a name completes the command', async (p) => {
+    await cmd(p, 'CHDIR "C:\\"');
     await writeFile(p, 'C:\\FKEY.BAS', '10 PRINT "VIA F3"\n');
     await p.key('F3');
     p.assert.equal(await row(p, (await cur(p)).row), 'LOAD"');

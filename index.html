@@ -21,7 +21,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Baysik — BASIC IDE</title>
 <meta name="description" content="A retro GW-BASIC and QBasic IDE in your browser: write, run and debug BASIC with every classic screen mode, sound, files and guided tours.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230000aa'/%3E%3Cpath d='M3 4h6v1H4v2h4v1H4v3H3z' fill='%23ffff55'/%3E%3Crect x='10' y='10' width='3' height='2' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%230000aa'/%3E%3Cpath fill='%23ffff55' d='M3 2h7v2H5v3h5v2H5v3h6v2H3z M10 3h2v4h-2z M10 9h3v4h-3z'/%3E%3C/svg%3E">
 <style>
 /* ===== Theme tokens ===================================================== */
 :root, :root[data-theme="qbasic"] {
@@ -12152,11 +12152,14 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     }
 
     // ---- CHAIN / RUN "file" ------------------------------------------------------------------------------------
-    resolveProgramFile(name) {
+    /** Find a program by name (".BAS" is added when there is no extension) */
+    resolveProgramFile(name, baseDir) {
       const vfs = this.app.vfs;
       let n = name.trim();
-      const tries = [n];
-      if (!/\.[^\\.]*$/.test(n)) tries.push(n + '.BAS');
+      const names = [n];
+      if (!/\.[^\\.]*$/.test(n)) names.push(n + '.BAS');
+      const relative = !/^[A-Za-z]:/.test(n) && !n.startsWith('\\');
+      const tries = (relative && baseDir ? names.map((x) => baseDir + '\\' + x) : []).concat(names);
       for (const t of tries) { try { if (vfs.exists(t)) return vfs.resolve(t).display; } catch (e) { /* next */ } }
       return null;
     }
@@ -12250,9 +12253,10 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
           B.err(73, st.cmd + ' is only available in the GW-BASIC console');
       }
     }
-    resolveSaveName(name) {
+    resolveSaveName(name, baseDir) {
       let n = name.trim();
       if (!/\.[^\\.]*$/.test(n)) n += '.BAS';
+      if (baseDir && !/^[A-Za-z]:/.test(n) && !n.startsWith('\\')) n = baseDir + '\\' + n;
       return this.app.vfs.resolve(n).display;
     }
 
@@ -12995,6 +12999,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         this.active = true;
         this.runner.stop(true);
         app.activate(this.doc());
+        this.cdToProgram();
         d.screen(0, undefined, 0, 0, true);
         d.width(80, 25);
         d.color(7, 0);
@@ -13363,6 +13368,25 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
           return this.immediate(line);
       }
     }
+    /** Make the program's folder the current directory, so LOAD, SAVE, FILES and RUN "x"
+     *  work next to it, as they would on a PC where you had changed into that folder */
+    cdToProgram() {
+      const d = this.docPath && this.app.docByPath(this.docPath);
+      if (!d) return;
+      const vfs = this.app.vfs;
+      try { const drive = d.path[0].toUpperCase(); vfs.setDrive(drive); vfs.chdir(d.path.replace(/\\[^\\]*$/, '') || drive + ':\\'); } catch (e) { /* stay where we are */ }
+    }
+    /** Another program was brought up in the editor: it becomes the console's program */
+    follow(d) {
+      this.docPath = d.path;
+      this.cdToProgram();
+      this.runner.vm = null;
+      this.lastLine = 0;
+      if (this.d.cursorCol() !== 0) this.d.newline();
+      this.print('Program: ' + d.name);
+      this.ok();
+      this.app.setStatus('GW-BASIC console on ' + d.name + '. RUN, F2 or the Run button runs it.');
+    }
     loadFile(path) {
       const d = this.app.openFile(path, { noFocus: true }) || this.app.docByPath(path);
       if (!d) return;
@@ -13371,6 +13395,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       d.dirty = false;
       this.docPath = d.path;
       this.app.activate(d);
+      this.cdToProgram();
       this.runner.vm = null;
     }
     immediate(line) {
@@ -14545,6 +14570,8 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
     }
     activate(d) {
       this.active = d;
+      // the GW-BASIC console always works on the program shown in the editor
+      if (d && this.console && this.console.active && this.console.docPath && this.console.docPath !== d.path) this.console.follow(d);
       this.toggleDrawer(false);
       if (d && this.isProtected(d.path)) this.setStatus('Example/tutorial file — edit and run freely; Save (Ctrl+S) keeps your changes as your own copy');
       else if (d && this.statusMsg && /^Example\/tutorial file/.test(this.statusMsg)) this.setStatus('');
@@ -15575,7 +15602,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       RC.UI.alert('Keyboard Shortcuts', '<table class="kbd-table">' + rows.map(([k, v]) => `<tr><td><kbd>${k}</kbd></td><td>${v}</td></tr>`).join('') + '</table><p class="muted">While a program is running and the screen has focus, keys go to your program (except Ctrl+Break).</p>');
     }
     aboutDialog() {
-      RC.UI.alert('About Baysik', `<p><b>Baysik</b> version 1.0.0 (2607888)</p>
+      RC.UI.alert('About Baysik', `<p><b>Baysik</b> version 1.0.0 (bb2abdf)</p>
         <p>A BASIC programming studio for the browser, compatible with GW-BASIC and QBasic programs: every PC screen mode
         from CGA to VGA, PC speaker sound and music, files on a virtual disk, a debugger, a classic GW-BASIC console,
         a tutorial and a library of example programs.</p>

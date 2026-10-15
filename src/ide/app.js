@@ -478,6 +478,8 @@
     }
     activate(d) {
       this.active = d;
+      // the GW-BASIC console always works on the program shown in the editor
+      if (d && this.console && this.console.active && this.console.docPath && this.console.docPath !== d.path) this.console.follow(d);
       this.toggleDrawer(false);
       if (d && this.isProtected(d.path)) this.setStatus('Example/tutorial file — edit and run freely; Save (Ctrl+S) keeps your changes as your own copy');
       else if (d && this.statusMsg && /^Example\/tutorial file/.test(this.statusMsg)) this.setStatus('');

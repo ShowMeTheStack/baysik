@@ -77,6 +77,7 @@
         this.active = true;
         this.runner.stop(true);
         app.activate(this.doc());
+        this.cdToProgram();
         d.screen(0, undefined, 0, 0, true);
         d.width(80, 25);
         d.color(7, 0);
@@ -445,6 +446,25 @@
           return this.immediate(line);
       }
     }
+    /** Make the program's folder the current directory, so LOAD, SAVE, FILES and RUN "x"
+     *  work next to it, as they would on a PC where you had changed into that folder */
+    cdToProgram() {
+      const d = this.docPath && this.app.docByPath(this.docPath);
+      if (!d) return;
+      const vfs = this.app.vfs;
+      try { const drive = d.path[0].toUpperCase(); vfs.setDrive(drive); vfs.chdir(d.path.replace(/\\[^\\]*$/, '') || drive + ':\\'); } catch (e) { /* stay where we are */ }
+    }
+    /** Another program was brought up in the editor: it becomes the console's program */
+    follow(d) {
+      this.docPath = d.path;
+      this.cdToProgram();
+      this.runner.vm = null;
+      this.lastLine = 0;
+      if (this.d.cursorCol() !== 0) this.d.newline();
+      this.print('Program: ' + d.name);
+      this.ok();
+      this.app.setStatus('GW-BASIC console on ' + d.name + '. RUN, F2 or the Run button runs it.');
+    }
     loadFile(path) {
       const d = this.app.openFile(path, { noFocus: true }) || this.app.docByPath(path);
       if (!d) return;
@@ -453,6 +473,7 @@
       d.dirty = false;
       this.docPath = d.path;
       this.app.activate(d);
+      this.cdToProgram();
       this.runner.vm = null;
     }
     immediate(line) {
