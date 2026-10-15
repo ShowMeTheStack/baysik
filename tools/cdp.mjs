@@ -2,7 +2,7 @@
 // Serves the repo over HTTP so the page behaves like it does on GitHub Pages.
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFileSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { join, dirname, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -26,12 +26,15 @@ export async function launch(opts = {}) {
   const userDir = opts.userDir || mkdtempSync(join(tmpdir(), 'cdp-'));
   const w = opts.width || 1400, h = opts.height || 900;
   const proc = spawn(CHROME, ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${userDir}`, `--window-size=${w},${h}`,
-    '--no-first-run', '--no-default-browser-check', '--autoplay-policy=no-user-gesture-required', 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
+    '--no-first-run', '--no-default-browser-check', '--autoplay-policy=no-user-gesture-required', '--mute-audio', 'about:blank'], { stdio: ['ignore', 'ignore', 'pipe'] });
   const wsUrl = await new Promise((resolve, reject) => {
     let buf = '';
     proc.stderr.on('data', (d) => { buf += d; const m = /DevTools listening on (ws:\/\/\S+)/.exec(buf); if (m) resolve(m[1]); });
     setTimeout(() => reject(new Error('chrome did not start')), 15000);
   });
+  // never leave a browser or its temporary profile behind
+  const killChrome = () => { try { proc.kill('SIGKILL'); } catch (e) { /* gone */ } if (!opts.userDir) try { rmSync(userDir, { recursive: true, force: true }); } catch (e) { /* ignore */ } };
+  process.once('exit', killChrome);
   const httpBase = wsUrl.replace(/^ws/, 'http').replace(/\/devtools\/.*$/, '');
   const targets = await (await fetch(httpBase + '/json')).json();
   const page = targets.find((t) => t.type === 'page');
@@ -126,7 +129,12 @@ export async function launch(opts = {}) {
       await api.click(r[0], r[1]);
     },
     sleep,
-    async close() { try { ws.close(); } catch (e) { /* ignore */ } proc.kill(); server.close(); },
+    async close() {
+      try { ws.close(); } catch (e) { /* ignore */ }
+      const gone = new Promise((r) => { if (proc.exitCode !== null) r(); else { proc.once('exit', r); setTimeout(r, 3000); } });
+      proc.kill(); server.close(); process.removeListener('exit', killChrome);
+      if (!opts.userDir) { await gone; try { rmSync(userDir, { recursive: true, force: true }); } catch (e) { /* ignore */ } }
+    },
   };
   return api;
 }

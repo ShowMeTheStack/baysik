@@ -65,7 +65,7 @@ DO
   DO
     k$ = INKEY$
     ' keep the clock ticking, redrawing only when the second changes
-    IF placed AND INT(TIMER) <> lastSec THEN lastSec = INT(TIMER): GOSUB Status
+    IF placed AND INT(TIMER) <> lastSec& THEN lastSec& = INT(TIMER): GOSUB Status
   LOOP UNTIL k$ <> ""
   GOSUB DrawCell                                    ' remove the highlight
   IF k$ = CHR$(27) THEN GOTO Quit

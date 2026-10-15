@@ -20,8 +20,11 @@ DO
     LOCATE 24, 2: PRINT "Page flipping demo - any key quits";
     FOR i = 1 TO NB
         x(i) = x(i) + dx(i): y(i) = y(i) + dy(i)
-        IF x(i) < 2 OR x(i) > 300 THEN dx(i) = -dx(i)
-        IF y(i) < 2 OR y(i) > 170 THEN dy(i) = -dy(i)
+        ' bounce, and stay inside: PUT must not go past the edge of the screen
+        IF x(i) < 2 THEN x(i) = 2: dx(i) = ABS(dx(i))
+        IF x(i) > 300 THEN x(i) = 300: dx(i) = -ABS(dx(i))
+        IF y(i) < 2 THEN y(i) = 2: dy(i) = ABS(dy(i))
+        IF y(i) > 170 THEN y(i) = 170: dy(i) = -ABS(dy(i))
         PUT (x(i), y(i)), ball, PSET
     NEXT
     PCOPY 1, 0
