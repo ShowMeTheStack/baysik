@@ -496,3 +496,22 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 }
 }
 .vrow .vv { white-space: pre; }
+
+/* Help > About the Author: a photo on an old monitor, and the facts beside it */
+.author-head { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 12px; }
+.author-photo { position: relative; width: 192px; height: 240px; flex-shrink: 0; border: 6px solid #333; border-radius: 10px;
+  box-shadow: 0 0 0 2px #888, inset 0 0 18px rgba(0, 0, 0, .6); background: #000; overflow: hidden; }
+.author-photo img { display: block; width: 100%; height: 100%; image-rendering: pixelated; filter: contrast(1.05); }
+.author-photo::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .22) 0, rgba(0, 0, 0, .22) 1px, transparent 1px, transparent 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .45) 100%); }
+.author-name { font-size: 1.35em; font-weight: 700; margin-bottom: 4px; }
+.author-role { margin: 1px 0; }
+.author-nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 14px; margin: 10px 0 8px; font-size: .95em; }
+.author-links { margin-top: 6px; }
+.author-sec { margin: 10px 0; }
+.author-sec-t { font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .85em; margin-bottom: 4px; opacity: .85; }
+.author-row { margin: 2px 0 2px 12px; text-indent: -12px; padding-left: 12px; }
+:root[data-theme="qbasic"] .author-sec-t { color: #0000aa; opacity: 1; }
+:root[data-theme="qbasic"] .author a { color: #0000aa; }
+@media (max-width: 560px) { .author-photo { width: 144px; height: 180px; } }

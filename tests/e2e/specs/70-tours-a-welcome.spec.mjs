@@ -225,7 +225,8 @@ export default (t) => {
     p.assert.equal(kids[a - 1], '---');
     p.assert.deepEqual(kids.slice(a, a + 6), TOUR_LABELS);
     p.assert.equal(kids[a + 6], '---');
-    p.assert.equal(kids[a + 7], 'About Baysik');
+    p.assert.equal(kids[a + 7], 'About the Author');
+    p.assert.equal(kids[a + 8], 'About Baysik');
   });
 
   for (const [id, tour] of Object.entries(TOURS)) {

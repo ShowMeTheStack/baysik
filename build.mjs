@@ -24,6 +24,8 @@ const css = manifest.css.map((f) => src(f)).join('\n');
 let html = src('shell.html');
 html = html.replace('/*@@CSS@@*/', () => css);
 html = html.replace('//@@JS@@', () => js);
+// the author's photo, embedded so the page stays a single file
+html = html.replace(/@@AUTHOR_PNG@@/g, () => readFileSync(join(root, 'assets', 'author.png')).toString('base64'));
 html = html.replace(/@@VERSION@@/g, version + (commit ? ' (' + commit + ')' : ''));
 writeFileSync(join(root, 'index.html'), html);
 console.log(`index.html: ${(html.length / 1024).toFixed(1)} KB`);

@@ -16,7 +16,7 @@ const EXPECT = {
     'Sound', 'Volume', '---', 'Disk Usage & Reset…'],
   Help: ['Language Reference', 'Keyboard Shortcuts', 'Learn BASIC (Tutorial)…', 'Program Library…', 'Starter Examples…', '---',
     'Tour: Welcome to the IDE', 'Tour: Your First Program', 'Tour: Debugging', 'Tour: Graphics & Sound', 'Tour: Files & Sharing',
-    'Tour: Classic GW-BASIC Console', '---', 'About Baysik'],
+    'Tour: Classic GW-BASIC Console', '---', 'About the Author', 'About Baysik'],
 };
 const SHORTCUTS = {
   File: { 'New Program': 'Alt+N', 'Open…': 'Ctrl+O', Save: 'Ctrl+S', 'Save As…': 'Ctrl+Shift+S', 'Close Tab': 'Alt+W' },

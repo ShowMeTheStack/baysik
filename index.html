@@ -522,6 +522,25 @@ body.resizing iframe, body.resizing canvas { pointer-events: none; }
 }
 .vrow .vv { white-space: pre; }
 
+/* Help > About the Author: a photo on an old monitor, and the facts beside it */
+.author-head { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 12px; }
+.author-photo { position: relative; width: 192px; height: 240px; flex-shrink: 0; border: 6px solid #333; border-radius: 10px;
+  box-shadow: 0 0 0 2px #888, inset 0 0 18px rgba(0, 0, 0, .6); background: #000; overflow: hidden; }
+.author-photo img { display: block; width: 100%; height: 100%; image-rendering: pixelated; filter: contrast(1.05); }
+.author-photo::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .22) 0, rgba(0, 0, 0, .22) 1px, transparent 1px, transparent 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, .45) 100%); }
+.author-name { font-size: 1.35em; font-weight: 700; margin-bottom: 4px; }
+.author-role { margin: 1px 0; }
+.author-nums { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2px 14px; margin: 10px 0 8px; font-size: .95em; }
+.author-links { margin-top: 6px; }
+.author-sec { margin: 10px 0; }
+.author-sec-t { font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .85em; margin-bottom: 4px; opacity: .85; }
+.author-row { margin: 2px 0 2px 12px; text-indent: -12px; padding-left: 12px; }
+:root[data-theme="qbasic"] .author-sec-t { color: #0000aa; opacity: 1; }
+:root[data-theme="qbasic"] .author a { color: #0000aa; }
+@media (max-width: 560px) { .author-photo { width: 144px; height: 180px; } }
+
 </style>
 </head>
 <body>
@@ -14089,6 +14108,78 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
   };
 })(RC);
 
+// ==== ide/author.js ====
+// Help > About the Author: who made Baysik, in the same DOS dialog style as the rest.
+(function (RC) {
+  'use strict';
+  const { h } = RC.UI;
+  const link = (href, text) => h('a', { href, target: '_blank', rel: 'noopener' }, text);
+
+  const AUTHOR = {
+    name: 'Jyotiprakash Mishra',
+    roles: [
+      'Assistant Professor of Computer Science, KIIT',
+      'Co-founder and CEO, ENineHQ Technologies',
+      'PhD candidate (thesis submitted), BITS Pilani',
+    ],
+    profile: 'Computer scientist, teacher and engineer: sixteen years across enterprise software, healthcare technology, '
+      + 'university teaching and hardware-security research on RISC-V. Doctoral research at BITS Pilani on the security of the '
+      + 'hardware-software interface (microarchitectural side channels, memory encryption and hardware-assisted malware '
+      + 'detection), with the degree expected in December 2026. Formerly a Team Lead at Epic in the USA and a Senior Member of '
+      + 'Technical Staff at Oracle.',
+    education: [
+      ['PhD in Computer Science', 'BITS Pilani', '2021 to 2026 (expected)'],
+      ['MS in Computer Science', 'University of Wisconsin-Madison', '2014 to 2016, GPA 3.9/4.0, with distinction'],
+      ['BE (Hons.) in Computer Science', 'BITS Pilani', '2006 to 2010, CGPA 9.53/10, with distinction'],
+    ],
+    work: [
+      ['Co-founder and CEO', 'ENineHQ Technologies', '2022 to now'],
+      ['Assistant Professor', 'KIIT, Bhubaneswar', '2020 to now'],
+      ['Team Lead, earlier Software Developer', 'Epic Systems, Madison, USA', '2015 to 2020'],
+      ['Teaching Assistant, Introduction to Operating Systems', 'University of Wisconsin-Madison', '2014 to 2016'],
+      ['Senior Member of Technical Staff', 'Oracle, Bangalore', '2010 to 2014'],
+    ],
+    books: [
+      'RISC-V Architecture and XV6: Instruction Set Architecture, Systems Programming, and Kernel Development (De Gruyter Brill, 2026)',
+      'Cryptographic Foundations: Symmetric and Public-Key Cryptography, Hashes, Digital Signatures, and Protocols (De Gruyter Brill, 2026)',
+    ],
+    numbers: [['16', 'years of experience'], ['2', 'books'], ['6', 'published patents'], ['16', 'research publications'], ['78', 'free lectures on YouTube']],
+    made: [
+      ['xv6, line by line', 'https://xv6.jyotiprakash.org', 'every line of a teaching operating system explained'],
+      ['µSystem 8086', 'https://8086.jyotiprakash.org', 'a PC/XT you wire chip by chip, which boots FreeDOS'],
+      ['Lohgo', 'https://lohgo.jyotiprakash.org', 'Logo with turtle graphics and a debugger'],
+      ['NetSim', 'https://netsim.jyotiprakash.org', 'a network simulator you can watch packet by packet'],
+      ['Compy', 'https://compy.jyotiprakash.org', 'a C compiler you can see through'],
+    ],
+    links: [
+      ['mail@jyotiprakash.org', 'mailto:mail@jyotiprakash.org'],
+      ['blog.jyotiprakash.org', 'https://blog.jyotiprakash.org'],
+      ['eninehq.com', 'https://eninehq.com'],
+      ['LinkedIn', 'https://www.linkedin.com/in/mishrajp88/'],
+      ['GitHub', 'https://github.com/ShowMeTheStack'],
+    ],
+  };
+
+  RC.authorDialog = function () {
+    const A = AUTHOR;
+    const photo = h('div.author-photo', h('img', { src: 'data:image/png;base64,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', alt: 'Photo of ' + A.name, width: '192', height: '240' }));
+    const head = h('div.author-head', photo,
+      h('div', h('div.author-name', A.name), ...A.roles.map((r) => h('div.author-role', r)),
+        h('div.author-nums', ...A.numbers.map(([n, l]) => h('div', h('b', n), ' ' + l))),
+        h('div.author-links', ...A.links.map(([t, u], i) => [i ? ' · ' : '', link(u, t)]))));
+    const section = (title, rows) => h('div.author-sec', h('div.author-sec-t', title), ...rows);
+    const body = h('div.author',
+      head,
+      h('p', A.profile),
+      section('Education', A.education.map(([d, s, y]) => h('div.author-row', h('b', d), ', ' + s + ' (' + y + ')'))),
+      section('Work', A.work.map(([r, o, y]) => h('div.author-row', h('b', r), ', ' + o + ' (' + y + ')'))),
+      section('Books', A.books.map((b) => h('div.author-row', b))),
+      section('Other things I made', A.made.map(([n, u, d]) => h('div.author-row', link(u, n), ': ' + d))),
+      h('p.muted', { style: { marginTop: '10px' } }, 'Baysik grew out of a first love for BASIC. If it brings back memories or teaches someone their first program, I would love to hear about it.'));
+    return RC.UI.modal({ title: 'About the Author', body, wide: true, buttons: [{ label: 'OK', value: true, primary: true }], enterValue: true });
+  };
+})(RC);
+
 // ==== ide/app.js ====
 // The Baysik IDE application.
 (function (RC) {
@@ -14348,6 +14439,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
           { label: 'Tour: Files & Sharing', action: () => RC.Tours.start(this, 'files') },
           { label: 'Tour: Classic GW-BASIC Console', action: () => RC.Tours.start(this, 'gw') },
           { sep: true },
+          { label: 'About the Author', action: () => RC.authorDialog() },
           { label: 'About Baysik', action: () => this.aboutDialog() },
         ] },
       ];
@@ -15602,7 +15694,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       RC.UI.alert('Keyboard Shortcuts', '<table class="kbd-table">' + rows.map(([k, v]) => `<tr><td><kbd>${k}</kbd></td><td>${v}</td></tr>`).join('') + '</table><p class="muted">While a program is running and the screen has focus, keys go to your program (except Ctrl+Break).</p>');
     }
     aboutDialog() {
-      RC.UI.alert('About Baysik', `<p><b>Baysik</b> version 1.0.0 (bb2abdf)</p>
+      RC.UI.alert('About Baysik', `<p><b>Baysik</b> version 1.0.0 (633e760)</p>
         <p>A BASIC programming studio for the browser, compatible with GW-BASIC and QBasic programs: every PC screen mode
         from CGA to VGA, PC speaker sound and music, files on a virtual disk, a debugger, a classic GW-BASIC console,
         a tutorial and a library of example programs.</p>
@@ -15615,7 +15707,11 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
         There is NO WARRANTY.</p>
         <p class="muted">Microsoft, MS-DOS, GW-BASIC, QBasic and QuickBASIC are trademarks of Microsoft Corporation; IBM, PC DOS, CGA, EGA
         and VGA are trademarks of International Business Machines Corporation. Baysik is an independent implementation, not affiliated
-        with or endorsed by them, and contains no code from them. The PC character ROM fonts are third-party material.</p>`);
+        with or endorsed by them, and contains no code from them. The PC character ROM fonts are third-party material.</p>
+        <p><a href="#" id="aboutAuthorLink">About the author&hellip;</a></p>`);
+      const a = document.getElementById('aboutAuthorLink');
+      // close About Baysik, then open the author's page
+      if (a) a.addEventListener('click', (e) => { e.preventDefault(); const ok = a.closest('.modal').querySelector('.modal-foot button'); if (ok) ok.click(); RC.authorDialog(); });
     }
     welcomeScreen() {
       const d = this.runner.display;
@@ -15629,6 +15725,7 @@ NOT, AND, OR, XOR, EQV, IMP     logic</pre>`,
       center(16, 'Press F5 to run the program in the editor', 14);
       center(17, 'Learn: step-by-step lessons   Library: hundreds of programs', 15);
       center(19, 'View > GW-BASIC Classic Console for the 1980s experience', 7);
+      center(23, 'Made by Jyotiprakash Mishra  -  Help > About the Author', 3);
       d.color(7, 0);
       d.locate(25, 1);
     }

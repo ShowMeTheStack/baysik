@@ -256,6 +256,7 @@
           { label: 'Tour: Files & Sharing', action: () => RC.Tours.start(this, 'files') },
           { label: 'Tour: Classic GW-BASIC Console', action: () => RC.Tours.start(this, 'gw') },
           { sep: true },
+          { label: 'About the Author', action: () => RC.authorDialog() },
           { label: 'About Baysik', action: () => this.aboutDialog() },
         ] },
       ];
@@ -1523,7 +1524,11 @@
         There is NO WARRANTY.</p>
         <p class="muted">Microsoft, MS-DOS, GW-BASIC, QBasic and QuickBASIC are trademarks of Microsoft Corporation; IBM, PC DOS, CGA, EGA
         and VGA are trademarks of International Business Machines Corporation. Baysik is an independent implementation, not affiliated
-        with or endorsed by them, and contains no code from them. The PC character ROM fonts are third-party material.</p>`);
+        with or endorsed by them, and contains no code from them. The PC character ROM fonts are third-party material.</p>
+        <p><a href="#" id="aboutAuthorLink">About the author&hellip;</a></p>`);
+      const a = document.getElementById('aboutAuthorLink');
+      // close About Baysik, then open the author's page
+      if (a) a.addEventListener('click', (e) => { e.preventDefault(); const ok = a.closest('.modal').querySelector('.modal-foot button'); if (ok) ok.click(); RC.authorDialog(); });
     }
     welcomeScreen() {
       const d = this.runner.display;
@@ -1537,6 +1542,7 @@
       center(16, 'Press F5 to run the program in the editor', 14);
       center(17, 'Learn: step-by-step lessons   Library: hundreds of programs', 15);
       center(19, 'View > GW-BASIC Classic Console for the 1980s experience', 7);
+      center(23, 'Made by Jyotiprakash Mishra  -  Help > About the Author', 3);
       d.color(7, 0);
       d.locate(25, 1);
     }

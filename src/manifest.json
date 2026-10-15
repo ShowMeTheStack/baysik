@@ -38,6 +38,7 @@
     "ide/lessons.js",
     "ide/help.js",
     "ide/tour.js",
+    "ide/author.js",
     "ide/app.js"
   ],
   "css": [
