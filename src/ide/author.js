@@ -37,6 +37,8 @@
       ['xv6, line by line', 'https://xv6.jyotiprakash.org', 'every line of a teaching operating system explained'],
       ['µSystem 8086', 'https://8086.jyotiprakash.org', 'a PC/XT you wire chip by chip, which boots FreeDOS'],
       ['Lohgo', 'https://lohgo.jyotiprakash.org', 'Logo with turtle graphics and a debugger'],
+      ['See', 'https://see.jyotiprakash.org', 'C89 step by step, down to the byte'],
+      ['Strux', 'https://strux.jyotiprakash.org', 'data structures animated from real C code'],
       ['NetSim', 'https://netsim.jyotiprakash.org', 'a network simulator you can watch packet by packet'],
       ['Compy', 'https://compy.jyotiprakash.org', 'a C compiler you can see through'],
     ],
