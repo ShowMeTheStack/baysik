@@ -40,6 +40,7 @@
       ['See', 'https://see.jyotiprakash.org', 'C89 step by step, down to the byte'],
       ['Strux', 'https://strux.jyotiprakash.org', 'data structures animated from real C code'],
       ['Kwery', 'https://kwery.jyotiprakash.org', 'a relational database you can see into, from SQL down to the pages'],
+      ['Tooring', 'https://tooring.jyotiprakash.org', 'theory of computation you can play with, from automata to NP-completeness'],
       ['NetSim', 'https://netsim.jyotiprakash.org', 'a network simulator you can watch packet by packet'],
       ['Compy', 'https://compy.jyotiprakash.org', 'a C compiler you can see through'],
     ],
